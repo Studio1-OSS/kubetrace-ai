@@ -83,15 +83,15 @@ cd kubetrace-ai
 cp .env.example .env
 ```
 
-Set `NEBIUS_API_KEY` and `NEBIUS_MODEL` in `.env`. To use the model from the recorded live runs:
+Set `NEBIUS_API_KEY` in `.env` and review the model selected by the sample configuration:
 
 ```dotenv
 NEBIUS_API_KEY=your-nebius-api-key
-NEBIUS_MODEL=meta-models/muse-spark-open
+NEBIUS_MODEL=reflection/beam
 NEBIUS_BASE_URL=https://api.tokenfactory.nebius.com/v1
 ```
 
-The existing [`.env.example`](.env.example) selects `reflection/beam`; the [recorded live results](docs/RESULTS.md) use **Muse Spark Open** (`meta-models/muse-spark-open`). Pick an exact model ID available to your key and run preflight to check model access and tool calling. The recorded results do not establish Beam performance.
+The [`.env.example`](.env.example) selects **Reflection Beam** (`reflection/beam`). The tables in [docs/RESULTS.md](docs/RESULTS.md) describe earlier **Muse Spark Open** (`meta-models/muse-spark-open`) runs; each report records its exact model. To reproduce those runs, set `NEBIUS_MODEL=meta-models/muse-spark-open`. Run preflight to check model access and tool calling for whichever exact model ID you select.
 
 ```bash
 kind create cluster --config deploy/kind/kind-config.yaml --kubeconfig .secrets/kind-kubeconfig
