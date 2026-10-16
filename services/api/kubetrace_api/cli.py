@@ -52,7 +52,8 @@ def main() -> None:
                 detail = p.get("state") or p.get("tool") or p.get("text") or p.get("step") or ""
                 print(f"{time.strftime('%H:%M:%S', time.localtime(e['ts']))}  {e['type']:<16} {str(detail)[:110]}")
             run = db.get_run(run_id)
-            if run["state"] in TERMINAL:
+            # Wait for ended_at too: the outcome and metrics are saved just after the final state.
+            if run["state"] in TERMINAL and (run.get("ended_at") or run["state"] == "error"):
                 print(json.dumps({"state": run["state"], "metrics": run.get("metrics")}, indent=1))
                 sys.exit(0 if run.get("eventual_success") else 2)
             time.sleep(1)
