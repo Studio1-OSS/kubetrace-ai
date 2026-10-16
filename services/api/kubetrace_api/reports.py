@@ -106,6 +106,9 @@ def _limitations(run: dict, outcome: dict) -> list[str]:
         for c in v.get("checks", []):
             if not c.get("ok"):
                 out.append(f"Verification attempt {v.get('attempt')}: {c.get('name')} failed ({c.get('detail')})")
+    if (run.get("metrics") or {}).get("reconstructed_from_events"):
+        out.append("Metrics and outcome were reconstructed from the recorded events: the headless runner exited before "
+                   "saving them (fixed 2026-10-16). Verification results are the recorded ones.")
     if (run.get("metrics") or {}).get("token_usage") != "reported by provider":
         out.append("Token usage was not fully reported by the provider; token figures are incomplete.")
     if (run.get("settings") or {}).get("test_runner") == "subprocess":
