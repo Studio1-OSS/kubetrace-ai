@@ -6,8 +6,6 @@ Kubernetes incident investigation and remediation by a bounded tool-calling agen
 
 ![Architecture](docs/architecture.svg)
 
-> **Model status (2026-10-16).** Reflection **Beam** is live on Token Factory as `reflection/beam`. The provider preflight passes: authentication, model access, the tool-calling round trip and usage reporting. The first live Beam run, the flagship code fix on a local kind cluster, **resolved on the first attempt and passed all 15 hidden checks** (run `20261016-191342-7e275b`, recorded on video). Earlier live runs used Muse Spark Open (`meta-models/muse-spark-open`) while Beam was not yet listed, and each report names the exact model it ran.
-
 ## What it does
 
 1. Connects to a cluster: a kubeconfig context, or a Civo cluster fetched server-side through the Civo API.
