@@ -6,7 +6,7 @@ Kubernetes incident investigation and remediation by a bounded tool-calling agen
 
 ![Architecture](docs/architecture.svg)
 
-> **Model status (checked 2026-10-16).** The project targets Reflection **Beam** through Token Factory, but Beam is **not in the Token Factory catalog yet**: the provider preflight lists 26–27 models and none is Beam. Live verification with Beam is **pending**. All live runs so far use **Muse Spark Open** (`meta-models/muse-spark-open`), chosen by the project owner, and every report names that model. Switching is one setting, `NEBIUS_MODEL`, once Beam appears in `GET /v1/models`. Nothing in this repository claims Beam produced a result.
+> **Model status (2026-10-16).** Reflection **Beam** is live on Token Factory as `reflection/beam`. The provider preflight passes: authentication, model access, the tool-calling round trip and usage reporting. The first live Beam run, the flagship code fix on a local kind cluster, **resolved on the first attempt and passed all 15 hidden checks** (run `20261016-191342-7e275b`, recorded on video). Earlier live runs used Muse Spark Open (`meta-models/muse-spark-open`) while Beam was not yet listed, and each report names the exact model it ran.
 
 ## What it does
 
