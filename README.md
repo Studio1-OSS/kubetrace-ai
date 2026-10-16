@@ -1,51 +1,130 @@
+<div align="center">
+
+<a href="https://tokenfactory.nebius.com/"><img src="docs/brand/token-factory.svg" alt="Nebius Token Factory" width="88" height="88"></a>
+
 # KubeTrace AI
 
-Kubernetes incident investigation and remediation by a bounded tool-calling agent, with inference on **Nebius Token Factory**, demonstrated on a **Civo** Kubernetes cluster. Inspired by [HolmesGPT](https://github.com/HolmesGPT/holmesgpt).
+### Can the agent prove the cluster recovered?
+
+**Kubernetes incident investigation and remediation by a bounded tool-calling agent, with inference on [Nebius Token Factory](https://tokenfactory.nebius.com/). Connect a cluster, inject a real fault, follow the evidence and tool actions, and verify the repair with hidden checks. Demonstrated on local kind and [Civo](https://www.civo.com/kubernetes) Kubernetes clusters.**
+
+Built with [Nebius Token Factory](https://dub.sh/aistudio) · [What it does](#what-it-does) · [Results](#results) · [How it works](#how-it-works) · [Get started](#get-started) · [Civo](#connect-your-civo-cluster) · [Experiments](#experiments) · [Documentation](#documentation) · [Limits](#limits)
+
+[![Nebius Token Factory](https://img.shields.io/badge/runs%20on-Nebius%20Token%20Factory-e0ff4f?labelColor=052b42)](https://tokenfactory.nebius.com/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-kind%20%7C%20Civo-326CE5?logo=kubernetes&logoColor=white)](https://www.civo.com/kubernetes)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](./pyproject.toml)
+[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white)](./apps/web/package.json)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
+[![Built by Studio1 team](https://img.shields.io/badge/built%20by-Studio1%20team-ff6b1a)](https://studio1hq.com)
 
 **Issue → evidence → agent tool actions → code or manifest patch → tests → deployment → recovery verification → what worked and what failed.**
 
-![Architecture](docs/architecture.svg)
+</div>
+
+---
+
+<div align="center">
+
+<table><tr><td>
+
+<img src="docs/architecture.svg" alt="KubeTrace AI architecture: cluster evidence, a bounded agent on Nebius Token Factory, policy-checked repairs and recovery verification" width="900">
+
+</td></tr></table>
+
+</div>
+
+_Inspired by [HolmesGPT](https://github.com/HolmesGPT/holmesgpt). The agent proposes a repair; the executor enforces policy, and hidden harness checks decide whether it worked._
 
 ## What it does
 
-1. Connects to a cluster: a kubeconfig context, or a Civo cluster fetched server-side through the Civo API.
-2. Shows live workloads and health, with a topology that separates API-observed relationships (EndpointSlices, ownerReferences) from inferred ones (selector matches).
-3. Deploys a small storefront checkout service, then injects one real fault from the catalog and proves it is visible.
-4. Lets the agent investigate with typed tools, through a namespace-scoped ServiceAccount: logs, events, rollout state, endpoints, HTTP checks through the Service, and source reading.
-5. The agent proposes code or manifest patches. A deterministic executor dry-runs each one on the API server, checks it against a policy allowlist, waits for approval in review mode, and writes it with a staleness check.
-6. For code bugs: tests in a disposable sandbox (no network, no credentials), an immutable image build, deploy, rollout.
-7. Hidden harness checks, which the agent never sees, decide whether the run is **Resolved**. The agent's own claim never does.
-8. A report covers every attempt, including denied changes and failed checks, with diffs, test output, tokens and timings. Export it as Markdown or JSON, and replay it later.
+1. **Connect to a cluster.** Use a kubeconfig context, or fetch a Civo cluster server-side through the Civo API.
+2. **See live workloads and health.** The topology separates API-observed relationships (EndpointSlices, ownerReferences) from inferred ones (selector matches).
+3. **Reproduce an incident.** Deploy a small storefront checkout service, inject one real fault from the catalog, and prove it is visible.
+4. **Follow the investigation.** The agent uses typed tools through a namespace-scoped ServiceAccount: logs, events, rollout state, endpoints, HTTP checks through the Service, and source reading.
+5. **Review a bounded repair.** The agent proposes code or manifest patches. A deterministic executor dry-runs each one on the API server, checks a policy allowlist, waits for approval in review mode, and writes it with a staleness check.
+6. **Test code before deployment.** For code bugs, run tests in a disposable sandbox with no network or credentials, build an immutable image, deploy it, and wait for rollout.
+7. **Verify recovery independently.** Hidden harness checks, which the agent never sees, decide whether the run is **Resolved**. The agent's own claim never does.
+8. **Keep every attempt.** Reports include denied changes and failed checks, with diffs, test output, tokens and timings. Export Markdown or JSON and replay it later.
 
-## Quick start (local kind cluster)
+## Results
 
-Requirements: macOS or Linux, Docker, kind, Python 3.11+ with [uv](https://docs.astral.sh/uv/), Node 22 with pnpm.
+The [recorded results](docs/RESULTS.md) include every investigated attempt, including failures and infrastructure errors. They are generated by [`scripts/results_table.py`](scripts/results_table.py); sample reports retain provenance, model and outcome.
+
+| Evidence | What was recorded | Where to inspect it |
+| --- | --- | --- |
+| Live on Civo · Muse Spark Open | Application bug and broken readiness resolved on their first attempts. Two selector-mismatch attempts ended in one infrastructure error and one unresolved run. | [Live Civo results](docs/RESULTS.md#live-on-civo) |
+| Live on local kind · Muse Spark Open | Application bug and selector mismatch each resolved on their first attempts. | [Live kind results](docs/RESULTS.md#live-on-local-kind) |
+| Fixture runs · scripted, no model | All six scenarios exercised, including escalation for the partner outage. These validate the pipeline and hidden checks, not model capability. | [Fixture results](docs/RESULTS.md#fixture-runs-scripted-test-double-no-model) |
+| Inspectable reports | Patches, tool output, verification, tokens and timings, including an unresolved live run. | [Sample reports](docs/RESULTS.md#sample-reports-presentation-mode-addresses-contexts-and-registry-names-hidden) |
+
+These are small demo scenarios, not SWE-bench or Terminal-Bench results. Repeated runs of one scenario are not separate capabilities. See [Limits](#limits) before interpreting them.
+
+## How it works
+
+| Component | Role |
+| --- | --- |
+| Nebius Token Factory | Hosts the configured model behind an OpenAI-compatible API, accessed with the official `openai` SDK. |
+| Agent loop | An explicit bounded loop with Pydantic tool schemas in [`loop.py`](services/agent/kubetrace_agent/loop.py), following the same approach HolmesGPT takes with its `ToolCallingLLM` engine. |
+| Kubernetes access | Namespace-scoped ServiceAccount and RBAC for evidence gathering and narrowly allowed writes. |
+| Deterministic executor | API-server dry runs, policy checks and `resourceVersion` staleness checks; review mode waits for approval. |
+| Code repair pipeline | Disposable test sandbox, immutable image build, deployment and rollout. |
+| Hidden verification | Independent checks decide whether the run resolved or correctly escalated. |
+| Web UI and reports | Live topology, tool timeline, diffs, test output, Markdown/JSON export and replay. |
+
+The timeline shows the model's short visible decision notes, tool calls and results, and `note` tool entries for observations and hypotheses. Provider reasoning fields are never stored. The model sees text only: redacted, size-limited tool results and repository text, treated as untrusted data. It never sees credentials, hidden checks or the expected patch.
+
+## Get started
+
+Requires **macOS or Linux**, **Docker**, **kind**, **Python 3.11+** with [uv](https://docs.astral.sh/uv/), and **Node.js 22** with pnpm. Get an API key from [Nebius Token Factory](https://tokenfactory.nebius.com/); live runs spend credits on your account.
 
 ```bash
-cp .env.example .env            # set NEBIUS_API_KEY (and NEBIUS_MODEL); leave the rest for kind
+git clone https://github.com/Studio1-OSS/kubetrace-ai.git
+cd kubetrace-ai
+cp .env.example .env
+```
+
+Set `NEBIUS_API_KEY` in `.env` and review the model selected by the sample configuration:
+
+```dotenv
+NEBIUS_API_KEY=your-nebius-api-key
+NEBIUS_MODEL=reflection/beam
+NEBIUS_BASE_URL=https://api.tokenfactory.nebius.com/v1
+```
+
+The [`.env.example`](.env.example) selects **Reflection Beam** (`reflection/beam`). The tables in [docs/RESULTS.md](docs/RESULTS.md) describe earlier **Muse Spark Open** (`meta-models/muse-spark-open`) runs; each report records its exact model. To reproduce those runs, set `NEBIUS_MODEL=meta-models/muse-spark-open`. Run preflight to check model access and tool calling for whichever exact model ID you select.
+
+```bash
 kind create cluster --config deploy/kind/kind-config.yaml --kubeconfig .secrets/kind-kubeconfig
 echo "KUBECONFIG=$PWD/.secrets/kind-kubeconfig" >> .env
 
 uv sync
-uv run kubetrace preflight      # checks auth, model access and the tool-calling round trip
+uv run kubetrace preflight
 (cd apps/web && pnpm install && pnpm build)
-uv run kubetrace serve          # http://127.0.0.1:8000
+uv run kubetrace serve
 ```
 
-Then open the **Experiments** tab, choose a scenario, and press **Setup**, then **Inject**, then **Investigate**. Turn off **Live model** to run the labelled fixture (a scripted stand-in, no model called).
+Open **http://127.0.0.1:8000**. In **Experiments**, choose a scenario and press **Setup**, then **Inject**, then **Investigate**. Turn off **Live model** to run the labelled fixture, a scripted stand-in that makes no model calls.
 
-For UI development, run `pnpm dev` in `apps/web` (http://127.0.0.1:5173, which proxies `/api` to the API). Headless use: `uv run kubetrace run application-bug --model-mode live`.
+For a headless live run:
 
-Docker Compose (`docker compose up --build`) works for Civo clusters. For kind on macOS, run the API on the host, because a container cannot reach the kind API server on the host's 127.0.0.1.
+```bash
+uv run kubetrace run application-bug --model-mode live
+```
+
+For UI development, run `pnpm dev` in `apps/web`. The UI at http://127.0.0.1:5173 proxies `/api` to the running API.
+
+Docker Compose (`docker compose up --build`) works for Civo clusters. For kind on macOS, run the API on the host: a container cannot reach the kind API server on the host's `127.0.0.1`.
 
 ## Connect your Civo cluster
 
-See [docs/CIVO.md](docs/CIVO.md). In short: set `CIVO_API_KEY`, `CIVO_REGION`, `CIVO_CLUSTER_ID`, `CLUSTER_KIND=civo` and a `REGISTRY` that the nodes can pull from, then connect from the **Connection** panel or let the API connect on start. KubeTrace never creates Civo infrastructure.
+Set `CIVO_API_KEY`, `CIVO_REGION`, `CIVO_CLUSTER_ID`, `CLUSTER_KIND=civo` and a `REGISTRY` that the nodes can pull from. Connect from the **Connection** panel or let the API connect on start. KubeTrace never creates Civo infrastructure.
+
+See [Civo setup](docs/CIVO.md) for registry configuration and cleanup.
 
 ## Experiments
 
 | Scenario | Fault | Repair | Success needs (hidden checks) |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `selector-mismatch` | Service selector matches no Pods | manifest | selector matches the Pods, endpoints ready, real checkouts through the Service, manifest equals live |
 | `application-bug` (flagship) | 30+ unit orders crash pricing (HTTP 500) | code | new image built in the run is deployed; hidden pricing tests pass; 6 checkout totals correct; no exception swallowing; the agent's regression test fails on the buggy code; original tests kept |
 | `broken-readiness` | readiness probe path `/ready` (404) | manifest | probe is `httpGet /readyz` (not exec, not removed), rollout complete, Pods Ready, checkout works |
@@ -53,24 +132,35 @@ See [docs/CIVO.md](docs/CIVO.md). In short: set `CIVO_API_KEY`, `CIVO_REGION`, `
 | `memory-pressure` | cache 160 MiB, limit 128 MiB: OOMKilled | config or bounded resources | limit fits the cache, at most 2× what it needs; Pods stable |
 | `partner-outage` | payment partner (another namespace) down | none: escalate | agent escalates, names the gateway, applies no change, claims no recovery |
 
-## Results
-
-Only from recorded runs; produced by `scripts/results_table.py`. Every attempt counts, including failures. These are small demo scenarios, not SWE-bench or Terminal-Bench results, and repeated runs of one scenario are not separate capabilities. See [docs/RESULTS.md](docs/RESULTS.md) for the current table and sample reports.
-
 ## Documentation
 
-- [docs/CIVO.md](docs/CIVO.md): Civo setup, registry, cleanup
-- [docs/COOKBOOK.md](docs/COOKBOOK.md): each scenario as issue → actions → patch → tests → outcome
-- [docs/RECORDING_SCRIPT.md](docs/RECORDING_SCRIPT.md): a three-experiment demo recording
-- [docs/SECURITY.md](docs/SECURITY.md): credentials, RBAC, policy, sandboxing, remote exposure
-- [docs/TESTING.md](docs/TESTING.md): what is tested and how to run it
-- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md): common problems and cleanup
-- [docs/PLAN.md](docs/PLAN.md): verified provider facts and the build plan
+| Guide | What it covers |
+| --- | --- |
+| [Civo](docs/CIVO.md) | Cluster setup, registry and cleanup. |
+| [Cookbook](docs/COOKBOOK.md) | Each scenario as issue → actions → patch → tests → outcome. |
+| [Results](docs/RESULTS.md) | Recorded attempts, provenance, failures and sample reports. |
+| [Recording script](docs/RECORDING_SCRIPT.md) | A three-experiment demo recording. |
+| [Security](docs/SECURITY.md) | Credentials, RBAC, policy, sandboxing and remote exposure. |
+| [Testing](docs/TESTING.md) | Unit, kind integration, UI and opt-in live checks. |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Common problems and cleanup. |
+| [Build plan](docs/PLAN.md) | Provider verification notes and the build plan. |
 
-## Design notes
+## Limits
 
-- **No agent framework.** An explicit loop (`services/agent/kubetrace_agent/loop.py`) with Pydantic tool schemas, the same approach HolmesGPT takes with its own `ToolCallingLLM` engine. The official `openai` SDK talks to Token Factory's OpenAI-compatible endpoint.
-- **No private reasoning is shown.** The timeline shows the model's short visible decision notes, its tool calls and results, and its `note` tool entries (observations and hypotheses). Provider reasoning fields are never stored.
-- **The model sees text only:** tool results and repository text, redacted and size-limited, and treated as untrusted data. It never sees credentials, the hidden checks or the expected patch.
+- **Small demo workload.** Six scenarios; the recorded live results cover only application bugs, readiness and selector mismatches. Invalid config, memory pressure and partner outage have passed only as fixtures in the recorded results.
+- **Fixtures are scripted.** They exercise real pipeline steps and hidden checks without evaluating a model.
+- **Failures stay visible.** A model claiming success is not recovery. Hidden checks decide the outcome; unresolved runs and infrastructure errors remain in the results.
+- **Costs are estimates.** The results use provider-reported tokens and a pinned catalog rate. Some run metrics were reconstructed from recorded events and are labelled in their reports.
+- **Sandbox provenance matters.** The Docker runner has no network or credentials. The subprocess fallback is not isolated, and reports identify when it was used.
 
-Licensed under [Apache-2.0](LICENSE).
+## Data and privacy
+
+Nebius Token Factory receives redacted, size-limited tool results and repository text for inference. API keys and the cluster-admin kubeconfig stay server-side. A per-run agent token grants namespace-scoped access; credentials never enter the model context, browser reports or events.
+
+The API binds to `127.0.0.1`. Before exposing it remotely, set `KUBETRACE_API_TOKEN`, use TLS, restrict network access and prefer review mode. See the [security model](docs/SECURITY.md) for the exact RBAC, policy and sandbox boundaries.
+
+---
+
+Building on open models? **[Join the Nebius builder program](https://dub.sh/aistudio)** for credits and support.
+
+Built with Nebius Token Factory · [Apache-2.0 License](LICENSE) · Built by the [Studio1 team](https://studio1hq.com)
