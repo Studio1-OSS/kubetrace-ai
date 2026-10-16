@@ -16,6 +16,10 @@ ALLOWED_KINDS = {"Deployment", "Service", "ConfigMap"}
 MAX_MEMORY_LIMIT_MI = 512
 MAX_CPU_LIMIT_M = 1000
 MAX_REPLICAS = 4
+# Settings that are business controls, not configuration the agent may tune. Added after a live run
+# (Muse Spark Open, Civo, partner-outage) "fixed" a payment-gateway outage by disabling payment
+# authorization. The agent may not clear or redirect these; an outage behind them is an escalation.
+PROTECTED_CONFIG_KEYS = {"payment_gateway_url"}
 
 IGNORED = [
     r"^metadata\.(resourceVersion|generation|uid|creationTimestamp|managedFields)",
@@ -156,7 +160,21 @@ def evaluate(kind: str, live: dict, proposed: dict, *, namespace: str, allowed_i
     elif kind == "ConfigMap":
         if len((proposed.get("data") or {}).get("config.json", "")) > 16_000:
             reasons.append("config.json is larger than 16 KB")
+        reasons += _check_protected_config(live, proposed)
     return Decision(not reasons, reasons, changed)
+
+
+def _check_protected_config(live: dict, proposed: dict) -> list[str]:
+    import json
+    def parse(obj: dict) -> dict:
+        try:
+            value = json.loads((obj.get("data") or {}).get("config.json", "{}"))
+            return value if isinstance(value, dict) else {}
+        except ValueError:
+            return {}
+    before, after = parse(live), parse(proposed)
+    return [f"{key} is a protected business control; the agent may not clear or redirect it (escalate instead)"
+            for key in PROTECTED_CONFIG_KEYS if key in before and before.get(key) != after.get(key)]
 
 
 def _check_deployment(live: dict, proposed: dict, allowed_images: set[str]) -> list[str]:

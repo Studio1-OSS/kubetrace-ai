@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 // Drives the real UI served by the running API (uv run kubetrace serve) against a kind cluster.
 export default defineConfig({
   testDir: "e2e",
+  testIgnore: "demo-recording.spec.ts",
   timeout: 15 * 60_000,
   expect: { timeout: 30_000 },
   workers: 1,

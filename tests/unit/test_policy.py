@@ -103,3 +103,16 @@ def test_configmap_only_config_json_may_change():
             "data": {"config.json": "{}"}}
     assert evaluate(live, mutate(live, lambda o: o["data"].update({"config.json": '{"tax_rate": 0.08}'}))).allowed
     assert not evaluate(live, mutate(live, lambda o: o["data"].update(extra="x"))).allowed
+
+
+def test_payment_authorization_cannot_be_disabled_or_redirected():
+    import json
+    def cm(gateway):
+        return {"kind": "ConfigMap", "metadata": {"name": "storefront-config", "namespace": NS, "labels": {policy.EXPERIMENT_LABEL: "true"}},
+                "data": {"config.json": json.dumps({"tax_rate": 0.08, "payment_gateway_url": gateway})}}
+    live = cm("http://payments.kubetrace-partner.svc:80")
+    for bad in ("", "http://evil.example"):
+        decision = evaluate(live, cm(bad))
+        assert not decision.allowed and any("protected" in r for r in decision.reasons)
+    other = {**live, "data": {"config.json": json.dumps({"tax_rate": 0.07, "payment_gateway_url": "http://payments.kubetrace-partner.svc:80"})}}
+    assert evaluate(live, other).allowed
