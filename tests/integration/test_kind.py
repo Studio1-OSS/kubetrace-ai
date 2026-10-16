@@ -61,7 +61,7 @@ def test_stale_proposal_is_rejected(baseline):
 
 
 @pytest.mark.parametrize("patch,reason", [
-    ({"spec": {"template": {"spec": {"containers": [{"name": "storefront", "readinessProbe": None}]}}}}, "probe"),
+    ({"spec": {"template": {"spec": {"containers": [{"name": "storefront", "readinessProbe": None}]}}}}, "cannot be removed"),
     ({"spec": {"template": {"spec": {"hostNetwork": True}}}}, "hostNetwork"),
     ({"spec": {"template": {"spec": {"containers": [{"name": "storefront", "image": "busybox:1.36"}]}}}}, "image"),
 ])
