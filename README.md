@@ -1,16 +1,17 @@
 <div align="center">
 
-<a href="https://tokenfactory.nebius.com/"><img src="docs/brand/token-factory.svg" alt="Nebius Token Factory" width="88" height="88"></a>
+<a href="https://tokenfactory.nebius.com/?modals=endpoint-details&amp;model-id=reflection/beam"><img src="docs/brand/token-factory.svg" alt="Nebius Token Factory" width="88" height="88"></a>
 
 # KubeTrace AI
 
 ### Can the agent prove the cluster recovered?
 
-**Kubernetes incident investigation and remediation by a bounded tool-calling agent, with inference on [Nebius Token Factory](https://tokenfactory.nebius.com/). Connect a cluster, inject a real fault, follow the evidence and tool actions, and verify the repair with hidden checks. Demonstrated on local kind and [Civo](https://www.civo.com/kubernetes) Kubernetes clusters.**
+**Kubernetes incident investigation and remediation by a bounded tool-calling agent, with inference using [Reflection Beam](https://reflection.ai/blog/introducing-beam) on [Nebius Token Factory](https://tokenfactory.nebius.com/?modals=endpoint-details&model-id=reflection/beam). Connect a cluster, inject a real fault, follow the evidence and tool actions, and verify the repair with hidden checks. Demonstrated on local kind and [Civo](https://www.civo.com/kubernetes) Kubernetes clusters.**
 
 Built with [Nebius Token Factory](https://dub.sh/aistudio) · [What it does](#what-it-does) · [Results](#results) · [How it works](#how-it-works) · [Get started](#get-started) · [Civo](#connect-your-civo-cluster) · [Experiments](#experiments) · [Documentation](#documentation) · [Limits](#limits)
 
-[![Nebius Token Factory](https://img.shields.io/badge/runs%20on-Nebius%20Token%20Factory-e0ff4f?labelColor=052b42)](https://tokenfactory.nebius.com/)
+[![Reflection Beam](https://img.shields.io/badge/model-Reflection%20Beam-1a3a3a)](https://reflection.ai/blog/introducing-beam)
+[![Nebius Token Factory](https://img.shields.io/badge/runs%20on-Nebius%20Token%20Factory-e0ff4f?labelColor=052b42)](https://tokenfactory.nebius.com/?modals=endpoint-details&model-id=reflection/beam)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-kind%20%7C%20Civo-326CE5?logo=kubernetes&logoColor=white)](https://www.civo.com/kubernetes)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](./pyproject.toml)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white)](./apps/web/package.json)
@@ -91,7 +92,7 @@ NEBIUS_MODEL=reflection/beam
 NEBIUS_BASE_URL=https://api.tokenfactory.nebius.com/v1
 ```
 
-The [`.env.example`](.env.example) selects **Reflection Beam** (`reflection/beam`). The tables in [docs/RESULTS.md](docs/RESULTS.md) describe earlier **Muse Spark Open** (`meta-models/muse-spark-open`) runs; each report records its exact model. To reproduce those runs, set `NEBIUS_MODEL=meta-models/muse-spark-open`. Run preflight to check model access and tool calling for whichever exact model ID you select.
+The [`.env.example`](.env.example) selects [**Reflection Beam**](https://reflection.ai/blog/introducing-beam) (`reflection/beam`). Open its [Nebius Token Factory model page](https://tokenfactory.nebius.com/?modals=endpoint-details&model-id=reflection/beam) for endpoint details. The tables in [docs/RESULTS.md](docs/RESULTS.md) describe earlier **Muse Spark Open** (`meta-models/muse-spark-open`) runs; each report records its exact model. To reproduce those runs, set `NEBIUS_MODEL=meta-models/muse-spark-open`. Run preflight to check model access and tool calling for whichever exact model ID you select.
 
 ```bash
 kind create cluster --config deploy/kind/kind-config.yaml --kubeconfig .secrets/kind-kubeconfig
