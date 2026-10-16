@@ -74,6 +74,33 @@ def json_merge(target: Any, patch: Any) -> Any:
     return result
 
 
+def named_merge(target: Any, patch: Any) -> Any:
+    """Merge patch where lists of named items (containers, env, ports, volumes) merge by name, like
+    kubectl's strategic merge. A patch item {"name": X, "$patch": "delete"} removes X; null deletes keys."""
+    if isinstance(patch, list) and isinstance(target, list) and patch and all(
+            isinstance(p, dict) and "name" in p for p in patch) and all(isinstance(t, dict) and "name" in t for t in target):
+        out = [copy.deepcopy(t) for t in target]
+        for item in patch:
+            idx = next((i for i, t in enumerate(out) if t["name"] == item["name"]), None)
+            if item.get("$patch") == "delete":
+                if idx is not None:
+                    out.pop(idx)
+            elif idx is None:
+                out.append({k: v for k, v in item.items() if k != "$patch"})
+            else:
+                out[idx] = named_merge(out[idx], item)
+        return out
+    if not isinstance(patch, dict):
+        return copy.deepcopy(patch)
+    result = copy.deepcopy(target) if isinstance(target, dict) else {}
+    for key, value in patch.items():
+        if value is None:
+            result.pop(key, None)
+        else:
+            result[key] = named_merge(result.get(key), value)
+    return result
+
+
 def _strip_runtime(obj: dict) -> dict:
     obj = copy.deepcopy(obj)
     obj.pop("status", None)
@@ -121,7 +148,7 @@ class Executor:
     # Building proposals --------------------------------------------------------------------
     def from_merge_patch(self, kind: str, name: str, patch: dict) -> tuple[dict, dict]:
         live = self.read(kind, name)
-        proposed = json_merge(_strip_runtime(live), patch)
+        proposed = named_merge(_strip_runtime(live), patch)
         proposed["metadata"]["resourceVersion"] = live["metadata"]["resourceVersion"]
         return live, proposed
 

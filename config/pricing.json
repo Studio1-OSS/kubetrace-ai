@@ -7,6 +7,13 @@
       "output_per_m": 4.25,
       "source": "Nebius Token Factory GET /v1/models?verbose=true (pricing.prompt / pricing.completion)",
       "date": "2026-10-16"
+    },
+    {
+      "model": "reflection/beam",
+      "input_per_m": 0.25,
+      "output_per_m": 1.0,
+      "source": "Nebius Token Factory GET /v1/models?verbose=true (pricing.prompt / pricing.completion)",
+      "date": "2026-10-16"
     }
   ]
 }

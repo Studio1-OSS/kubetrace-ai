@@ -68,16 +68,7 @@ def test_stale_proposal_is_rejected(baseline):
 def test_superficial_or_dangerous_patches_are_denied_on_the_real_api(baseline, patch, reason):
     settings, handle = baseline
     executor = Executor(agent_client(handle, settings.demo_namespace), settings.demo_namespace, "auto")
-    live = executor.read("Deployment", "storefront")
-    if "containers" in str(patch):
-        container = dict(live["spec"]["template"]["spec"]["containers"][0])
-        change = patch["spec"]["template"]["spec"]["containers"][0]
-        for k, v in change.items():
-            if v is None:
-                container.pop(k, None)
-            else:
-                container[k] = v
-        patch = {"spec": {"template": {"spec": {"containers": [container]}}}}
+    # Named lists merge by name; null removes a key (the readiness probe in the first case).
     live, proposed = executor.from_merge_patch("Deployment", "storefront", patch)
     result = executor.execute("Deployment", "storefront", live, proposed, "patch_resource", "test")
     assert result.status == "denied", result.decision

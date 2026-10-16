@@ -20,7 +20,8 @@ from .tools import TOOL_SCHEMA_VERSION, ToolContext, dispatch, tool_schemas
 
 # .2: keep 24 recent results whole (was 8, which made the model re-read files it had just read
 # because they came back shortened) and tell it when it repeats an identical call.
-PROMPT_VERSION = "2026-10-16.2"
+# .3: patch_resource merges named lists (containers, env, ports) by name, like kubectl's strategic merge.
+PROMPT_VERSION = "2026-10-16.3"
 KEEP_FULL_TOOL_RESULTS = 24    # the most recent tool results the model sees in full
 REPEAT_NOTICE_AT = 3           # identical calls before the result carries a repeat notice
 ELIDED_CHARS = 400             # older results are cut to this much, with a note

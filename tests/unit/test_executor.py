@@ -34,3 +34,16 @@ def test_manifest_for_another_namespace_is_refused():
         assert "namespace" in str(exc)
     else:
         raise AssertionError("expected a refusal")
+
+
+def test_named_lists_merge_by_name_so_a_partial_container_patch_keeps_the_image():
+    from kubetrace_agent.executor import named_merge
+    live = {"spec": {"template": {"spec": {"containers": [
+        {"name": "storefront", "image": "img:1", "resources": {"limits": {"memory": "128Mi"}}},
+        {"name": "sidecar", "image": "side:1"}]}}}}
+    patch = {"spec": {"template": {"spec": {"containers": [{"name": "storefront", "resources": {"limits": {"memory": "256Mi"}}}]}}}}
+    out = named_merge(live, patch)["spec"]["template"]["spec"]["containers"]
+    assert out[0] == {"name": "storefront", "image": "img:1", "resources": {"limits": {"memory": "256Mi"}}}
+    assert out[1] == {"name": "sidecar", "image": "side:1"}
+    removed = named_merge(live, {"spec": {"template": {"spec": {"containers": [{"name": "sidecar", "$patch": "delete"}]}}}})
+    assert [c["name"] for c in removed["spec"]["template"]["spec"]["containers"]] == ["storefront"]

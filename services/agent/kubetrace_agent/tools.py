@@ -157,8 +157,10 @@ class ApplyManifest(BaseModel):
 
 
 class PatchResource(BaseModel):
-    """Apply a JSON merge patch to a live resource (null deletes a key). Prefer apply_manifest, which keeps the
-    source of truth in sync; a live patch must be reconciled into the manifest afterwards."""
+    """Patch a live resource. Maps merge; null deletes a key; lists of named items (containers, env, ports) merge
+    by name, so {"spec":{"template":{"spec":{"containers":[{"name":"storefront","resources":{...}}]}}}} changes only
+    that field. Prefer apply_manifest, which keeps the source of truth in sync; a live patch must be reconciled into
+    the manifest afterwards."""
     kind: Literal["Deployment", "Service", "ConfigMap"]
     name: str
     patch: dict
