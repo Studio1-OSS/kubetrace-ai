@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>KubeTrace AI launch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=block" rel="stylesheet" />
+<style>
+  :root {
+    --navy: #071c30; --navy2: #0b2a45; --panel: #0e2a43; --line: #1d4161;
+    --ink: #eaf2fb; --muted: #8fa7bf; --lime: #d4f75c; --cyan: #3fd6d0; --blue: #4aa8ff; --red: #ff5d6c; --green: #52e0a0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--navy); }
+  body { font-family: Inter, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(1200px 800px at 70% 20%, #0f3456 0%, var(--navy) 60%); }
+  .layer { position: absolute; inset: 0; will-change: opacity, transform; }
+  .center { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .mono { font-family: "JetBrains Mono", monospace; }
+  #grid { background-image: linear-gradient(rgba(74,168,255,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(74,168,255,.07) 1px, transparent 1px);
+          background-size: 64px 64px; }
+  .glow { position: absolute; border-radius: 50%; filter: blur(80px); }
+  .kicker { font-size: 22px; letter-spacing: .32em; text-transform: uppercase; color: var(--lime); font-weight: 600; }
+  .title { font-size: 128px; font-weight: 800; letter-spacing: -.035em; line-height: 1; }
+  .title .ai { background: linear-gradient(90deg, var(--lime), var(--cyan) 55%, var(--blue)); -webkit-background-clip: text; color: transparent; }
+  .sub { font-size: 34px; color: var(--muted); font-weight: 500; margin-top: 28px; letter-spacing: -.01em; }
+  .caption { position: absolute; left: 120px; top: 130px; }
+  .caption h2 { font-size: 72px; font-weight: 800; letter-spacing: -.03em; line-height: 1.04; }
+  .caption p { margin-top: 14px; font-size: 26px; color: var(--muted); }
+  .card { background: rgba(14,42,67,.92); border: 1.5px solid var(--line); border-radius: 22px; box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+  .alert { position: absolute; left: 120px; top: 450px; width: 900px; padding: 34px 40px; border-color: rgba(255,93,108,.55); }
+  .alert .row { display: flex; align-items: center; gap: 18px; }
+  .pill { display: inline-flex; align-items: center; gap: 10px; padding: 8px 18px; border-radius: 999px; font-size: 22px; font-weight: 600; }
+  .pill.red { background: rgba(255,93,108,.14); color: var(--red); border: 1.5px solid rgba(255,93,108,.45); }
+  .pill.green { background: rgba(82,224,160,.14); color: var(--green); border: 1.5px solid rgba(82,224,160,.45); }
+  .pill.lime { background: rgba(212,247,92,.12); color: var(--lime); border: 1.5px solid rgba(212,247,92,.45); }
+  .pill.blue { background: rgba(74,168,255,.12); color: var(--blue); border: 1.5px solid rgba(74,168,255,.45); }
+  .big500 { font-size: 150px; font-weight: 800; color: var(--red); letter-spacing: -.04em; }
+  .cluster { position: absolute; right: 130px; top: 470px; width: 640px; height: 420px; transform-origin: right top; }
+  .node { position: absolute; width: 190px; height: 100px; border-radius: 16px; border: 1.5px solid var(--line); background: var(--panel);
+          display: flex; flex-direction: column; justify-content: center; padding: 0 18px; font-size: 16px; color: var(--muted); }
+  .node b { color: var(--ink); font-size: 20px; font-family: "JetBrains Mono", monospace; font-weight: 500; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; position: absolute; right: 14px; top: 14px; }
+  .feed { position: absolute; left: 120px; top: 420px; width: 1040px; padding: 34px 40px; font-size: 28px; line-height: 1.95; }
+  .feed .ln { white-space: pre; overflow: hidden; }
+  .feed .tool { color: var(--cyan); } .feed .arg { color: var(--muted); } .feed .ok { color: var(--green); } .feed .bad { color: var(--red); }
+  .model { position: absolute; right: 120px; top: 120px; padding: 26px 32px; display: flex; align-items: center; gap: 22px; }
+  .model .name { font-size: 40px; font-weight: 800; letter-spacing: -.02em; }
+  .model .id { font-size: 20px; color: var(--muted); margin-top: 4px; }
+  .beam-orb { width: 64px; height: 64px; border-radius: 18px; background: conic-gradient(from 200deg, var(--lime), var(--cyan), var(--blue), var(--lime)); }
+  .obs { position: absolute; right: 120px; top: 470px; width: 600px; padding: 30px 34px; border-color: rgba(212,247,92,.45); }
+  .obs .q { font-size: 25px; line-height: 1.5; color: var(--ink); margin-top: 16px; }
+  .editor { position: absolute; left: 120px; top: 420px; width: 1100px; padding: 0; overflow: hidden; }
+  .editor .bar { display: flex; gap: 10px; align-items: center; padding: 18px 24px; border-bottom: 1.5px solid var(--line); font-size: 20px; color: var(--muted); }
+  .editor .bar i { width: 13px; height: 13px; border-radius: 50%; background: #2a4a69; display: inline-block; }
+  .code { padding: 30px 0; font-size: 29px; line-height: 1.8; }
+  .code .l { padding: 0 30px; white-space: pre; }
+  .code .del { background: rgba(255,93,108,.13); color: #ff9aa4; }
+  .code .add { background: rgba(82,224,160,.12); color: #8ff0c4; }
+  .code .ctx { color: #9cb3c9; }
+  .testcard { position: absolute; right: 120px; top: 640px; width: 580px; padding: 28px 32px; font-size: 21px; line-height: 1.65; }
+  .pipe { position: absolute; left: 120px; right: 120px; top: 480px; display: flex; gap: 30px; }
+  .stage { flex: 1; padding: 48px 36px 44px; }
+  .stage .lbl { font-size: 21px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .stage .val { font-size: 48px; font-weight: 700; margin-top: 12px; letter-spacing: -.02em; }
+  .stage .det { font-size: 22px; color: var(--muted); margin-top: 8px; }
+  .bar2 { height: 6px; border-radius: 3px; background: #17385a; margin-top: 22px; overflow: hidden; }
+  .bar2 > div { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--lime)); }
+  .check { width: 54px; height: 54px; border-radius: 50%; background: var(--green); color: #052; display: grid; place-items: center; font-weight: 900; font-size: 26px; position: absolute; right: 22px; top: 22px; }
+  .checks { position: absolute; left: 120px; top: 330px; width: 900px; padding: 26px 38px; font-size: 22px; line-height: 1.56; }
+  .checks .c { display: flex; gap: 14px; align-items: center; }
+  .checks .c span:first-child { color: var(--green); font-weight: 900; width: 26px; }
+  .counter { position: absolute; right: 150px; top: 380px; text-align: right; }
+  .counter .n { font-size: 210px; font-weight: 800; letter-spacing: -.05em; line-height: .9; }
+  .counter .n .of { color: var(--muted); font-size: 120px; }
+  .counter .t { font-size: 30px; color: var(--muted); margin-top: 14px; }
+  .resolved { position: absolute; right: 150px; top: 720px; font-size: 44px; padding: 16px 34px; }
+  .stepper { position: absolute; left: 120px; right: 120px; bottom: 48px; display: flex; gap: 14px; align-items: center; }
+  .step { padding: 12px 22px; border-radius: 999px; border: 1.5px solid var(--line); font-size: 20px; color: var(--muted); font-weight: 600; }
+  .step.on { border-color: rgba(82,224,160,.6); color: var(--green); background: rgba(82,224,160,.08); }
+  .shot { position: absolute; border-radius: 18px; overflow: hidden; border: 1.5px solid var(--line); box-shadow: 0 40px 120px rgba(0,0,0,.6); }
+  .shot img { display: block; width: 100%; }
+  .stats { position: absolute; left: 120px; right: 120px; top: 470px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px; }
+  .stat { padding: 64px 44px; }
+  .stat .v { font-size: 118px; font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+  .stat .k { font-size: 28px; color: var(--muted); margin-top: 16px; }
+  .outro .repo { margin-top: 44px; font-size: 40px; padding: 18px 36px; border-radius: 16px; border: 1.5px solid var(--line); background: rgba(14,42,67,.7); }
+  .powered { margin-top: 60px; display: flex; align-items: center; gap: 30px; }
+  .powered span { font-size: 26px; color: var(--muted); letter-spacing: .2em; text-transform: uppercase; font-weight: 600; }
+  .powered img { width: 230px; height: 230px; border-radius: 26px; }
+  .browser { position: absolute; left: 270px; top: 140px; width: 1380px; border-radius: 16px; overflow: hidden; border: 1.5px solid #24496d;
+             box-shadow: 0 50px 140px rgba(0,0,0,.65); background: #0b1120; }
+  .browser .chrome { height: 44px; display: flex; align-items: center; gap: 9px; padding: 0 18px; background: #0f1a2c; border-bottom: 1px solid #1e2c44; }
+  .browser .chrome i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .browser .url { margin-left: 18px; flex: 1; height: 26px; border-radius: 8px; background: #0a1322; color: #7f93b0; font-size: 15px;
+                  display: flex; align-items: center; padding: 0 14px; font-family: "JetBrains Mono", monospace; }
+  .browser .view { position: relative; width: 1380px; height: 862px; overflow: hidden; }
+  .browser .view img { position: absolute; left: 0; top: 0; width: 1380px; height: 862px; transform-origin: 50% 50%; }
+  .rec { position: absolute; left: 270px; top: 84px; display: flex; gap: 14px; align-items: center; }
+  .rec .badge { display: inline-flex; align-items: center; gap: 10px; padding: 9px 18px; border-radius: 999px; font-size: 19px; font-weight: 700;
+                letter-spacing: .14em; background: rgba(7,28,48,.9); border: 1.5px solid rgba(255,93,108,.5); color: #ffd5d9; }
+  .rec .badge b { width: 11px; height: 11px; border-radius: 50%; background: var(--red); display: inline-block; }
+  .rec .note { font-size: 20px; color: var(--muted); }
+  .clipcap { position: absolute; left: 310px; bottom: 64px; padding: 18px 28px; border-radius: 16px; background: rgba(7,28,48,.92);
+             border: 1.5px solid var(--line); font-size: 30px; font-weight: 700; letter-spacing: -.01em; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .clipcap span { color: var(--lime); }
+  .foot { position: absolute; left: 0; right: 0; bottom: 44px; text-align: center; font-size: 19px; color: #5f7a94; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="grid" class="layer"></div>
+  <div class="glow" id="g1" style="width:700px;height:700px;background:rgba(63,214,208,.18);left:-150px;top:-200px"></div>
+  <div class="glow" id="g2" style="width:800px;height:800px;background:rgba(212,247,92,.10);right:-200px;bottom:-300px"></div>
+
+  <!-- S1 intro -->
+  <div id="s1" class="layer center">
+    <div class="kicker" id="s1k">Open source · Kubernetes</div>
+    <div class="title" id="s1t" style="margin-top:28px">KubeTrace <span class="ai">AI</span></div>
+    <div class="sub" id="s1s">Incidents investigated, fixed and verified by an AI agent. Live.</div>
+  </div>
+
+  <!-- S2 incident -->
+  <div id="s2" class="layer">
+    <div class="caption"><div class="kicker">The incident</div><h2 id="s2h">A real bug ships<br/>to a real cluster.</h2></div>
+    <div class="card alert" id="s2a">
+      <div class="row"><span class="pill red">● Checkout failing</span><span class="mono" style="color:var(--muted);font-size:22px">storefront · kubetrace-demo</span></div>
+      <div class="row" style="margin-top:22px;align-items:flex-end;gap:30px">
+        <div class="big500" id="s2n">500</div>
+        <div class="mono" style="font-size:28px;line-height:1.5;padding-bottom:26px">POST /api/checkout<br/><span style="color:var(--muted)">30 × MUG-01</span></div>
+      </div>
+      <div style="font-size:24px;color:var(--muted);margin-top:6px">Orders of 30+ units crash. Smaller orders work.</div>
+    </div>
+    <div class="cluster" id="s2c">
+      <div class="node" style="left:0;top:40px"><b>Deployment</b>storefront<span class="dot" style="background:var(--green)"></span></div>
+      <div class="node" style="left:230px;top:0"><b>Pod</b>storefront-…jsvp4<span class="dot pulse" style="background:var(--red)"></span></div>
+      <div class="node" style="left:230px;top:130px"><b>Pod</b>storefront-…stzt5<span class="dot pulse" style="background:var(--red)"></span></div>
+      <div class="node" style="left:460px;top:65px"><b>Service</b>storefront<span class="dot" style="background:var(--green)"></span></div>
+      <svg width="640" height="260" style="position:absolute;left:0;top:0;pointer-events:none">
+        <path d="M180 86 C 205 86, 205 46, 230 46" stroke="#2f5a80" stroke-width="2" fill="none"/>
+        <path d="M180 86 C 205 86, 205 176, 230 176" stroke="#2f5a80" stroke-width="2" fill="none"/>
+        <path d="M410 46 C 435 46, 435 111, 460 111" stroke="#2f5a80" stroke-width="2" fill="none"/>
+        <path d="M410 176 C 435 176, 435 111, 460 111" stroke="#2f5a80" stroke-width="2" fill="none"/>
+      </svg>
+      <div style="position:absolute;left:0;top:300px;font-size:22px;color:var(--muted);width:640px;line-height:1.5">Fault proven before the agent starts:<br/><span style="color:var(--red)">30-unit order → HTTP 500</span> · <span style="color:var(--green)">2-unit order → HTTP 200</span></div>
+    </div>
+  </div>
+
+  <!-- S3 investigation -->
+  <div id="s3" class="layer">
+    <div class="caption"><div class="kicker">Investigation</div><h2>The agent follows<br/>the evidence.</h2></div>
+    <div class="card model" id="s3m"><div class="beam-orb" id="orb"></div><div><div class="name">Beam</div><div class="id mono">reflection/beam · Nebius Token Factory</div></div></div>
+    <div class="card feed mono" id="s3f">
+      <div class="ln" data-t="0"><span class="tool">› rollout_status</span> <span class="arg">storefront</span>  <span class="ok">2/2 ready</span></div>
+      <div class="ln" data-t="1"><span class="tool">› http_check</span> <span class="arg">POST /api/checkout ×30</span>  <span class="bad">500</span></div>
+      <div class="ln" data-t="2"><span class="tool">› read_file</span> <span class="arg">docs/pricing.md</span></div>
+      <div class="ln" data-t="3"><span class="tool">› read_file</span> <span class="arg">storefront/pricing.py</span></div>
+      <div class="ln" data-t="4"><span class="tool">› get_logs</span> <span class="arg">storefront-…jsvp4</span>  <span class="bad">IndexError</span></div>
+      <div class="ln" data-t="5"><span class="tool">› note</span> <span class="arg">observation</span>  <span class="ok">recorded</span></div>
+    </div>
+    <div class="card obs" id="s3o"><span class="pill lime">Observation · recorded by the agent</span>
+      <div class="q">“Large checkout (qty 30) raises IndexError in pricing.bulk_rate: BULK_TIERS has only 3 entries… Docs say 20+ units get 10% with no upper limit.”</div></div>
+  </div>
+
+  <!-- S4 patch -->
+  <div id="s4" class="layer">
+    <div class="caption"><div class="kicker">The fix</div><h2>It writes the patch<br/>and the test.</h2></div>
+    <div class="card editor mono" id="s4e">
+      <div class="bar"><i></i><i></i><i></i><span style="margin-left:14px">storefront/pricing.py</span></div>
+      <div class="code">
+        <div class="l ctx">def bulk_rate(qty: int) -&gt; Decimal:</div>
+        <div class="l del" id="d1">-    return BULK_TIERS[qty // 10]</div>
+        <div class="l add" id="a1">+    # 1-9: none, 10-19: 5%, 20+ (no upper limit): 10%.</div>
+        <div class="l add" id="a2">+    index = min(qty // 10, len(BULK_TIERS) - 1)</div>
+        <div class="l add" id="a3">+    return BULK_TIERS[index]</div>
+      </div>
+    </div>
+    <div class="card testcard mono" id="s4t"><div style="color:var(--muted);font-size:18px;margin-bottom:8px">tests/test_pricing.py  <span style="color:var(--green)">+ regression test</span></div>
+      <span style="color:#8ff0c4">def test_large_order_gets_ten_percent_bulk_discount():</span><br/>
+      &nbsp;&nbsp;q = quote([{"sku": "MUG-01", "qty": 30}], …)<br/>
+      &nbsp;&nbsp;assert q["bulk_discount"] == "36.00"<br/>
+      &nbsp;&nbsp;assert q["total"] == "349.92"</div>
+  </div>
+
+  <!-- S5 pipeline -->
+  <div id="s5" class="layer">
+    <div class="caption"><div class="kicker">Ship it safely</div><h2>Tested, policy-checked,<br/>deployed.</h2></div>
+    <div class="pipe">
+      <div class="card stage" id="p1" style="position:relative"><div class="lbl">Sandbox tests</div><div class="val">14 passed</div><div class="det">no network · no credentials</div><div class="bar2"><div></div></div><div class="check">✓</div></div>
+      <div class="card stage" id="p2" style="position:relative"><div class="lbl">Image build</div><div class="val">Immutable tag</div><div class="det">built from the fix commit</div><div class="bar2"><div></div></div><div class="check">✓</div></div>
+      <div class="card stage" id="p3" style="position:relative"><div class="lbl">Policy</div><div class="val">Dry run ✓</div><div class="det">allowlist · staleness check</div><div class="bar2"><div></div></div><div class="check">✓</div></div>
+      <div class="card stage" id="p4" style="position:relative"><div class="lbl">Rollout</div><div class="val">2 / 2 ready</div><div class="det">scoped ServiceAccount</div><div class="bar2"><div></div></div><div class="check">✓</div></div>
+    </div>
+  </div>
+
+  <!-- S6 verification -->
+  <div id="s6" class="layer">
+    <div class="caption"><div class="kicker">Independent verification</div><h2>Hidden checks decide.<br/>Not the agent.</h2></div>
+    <div class="card checks" id="s6c"></div>
+    <div class="counter"><div class="n"><span id="cnt">0</span><span class="of">/15</span></div><div class="t">hidden checks passed</div></div>
+    <div class="pill green resolved" id="s6r">✓ Resolved · first attempt</div>
+    <div class="stepper" id="s6s"></div>
+  </div>
+
+  <!-- S6b real UI -->
+  <div id="s6b" class="layer">
+    <div class="shot" id="shot1" style="width:1240px;left:340px;top:150px"><img src="assets/ui-205.png" /></div>
+    <div class="caption" style="top:80px;left:120px"><div class="kicker">Real run · real UI</div></div>
+  </div>
+
+  <!-- Real UI footage -->
+  <div id="real" class="layer">
+    <div class="rec"><span class="badge"><b id="recdot"></b>REAL UI · LIVE RUN</span><span class="note" id="recnote">1× speed · Beam on a local Kubernetes cluster</span></div>
+    <div class="browser" id="browser">
+      <div class="chrome"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i>
+        <div class="url" id="url">127.0.0.1:8000/experiments</div></div>
+      <div class="view"><img id="clipimg" /></div>
+    </div>
+    <div class="clipcap" id="clipcap"></div>
+  </div>
+
+  <!-- S7 stats -->
+  <div id="s7" class="layer">
+    <div class="caption"><div class="kicker">One live run</div><h2>From alert to verified fix.</h2></div>
+    <div class="stats">
+      <div class="card stat"><div class="v" id="v1">0 s</div><div class="k">agent time</div></div>
+      <div class="card stat"><div class="v" id="v2">0</div><div class="k">model calls</div></div>
+      <div class="card stat"><div class="v" id="v3">0/15</div><div class="k">hidden checks passed</div></div>
+      <div class="card stat"><div class="v" style="color:var(--lime)">0</div><div class="k">human edits</div></div>
+    </div>
+    <div class="foot" id="s7f">Live run on a local Kubernetes cluster (kind) · run 20261016-191342-7e275b</div>
+  </div>
+
+  <!-- S8 outro -->
+  <div id="s8" class="layer center outro">
+    <div class="title" style="font-size:112px">KubeTrace <span class="ai">AI</span></div>
+    <div class="repo mono" id="s8r">github.com/Studio1-OSS/kubetrace-ai</div>
+    <div class="powered" id="s8p"><span>AI powered by</span><img src="assets/nebius-token-factory.png" /></div>
+  </div>
+</div>
+
+<script>
+const CHECKS = ["running a new image built in this run", "rollout complete", "pods ready and stable", "service endpoints",
+  "checkout 2 × MUG-01 → 31.92", "checkout 12 × CAP-03 → 227.77", "checkout with SAVE10 → 41.72", "checkout 30 × MUG-01 → 349.92",
+  "checkout 45 × TEE-02, SAVE10 → 944.78", "checkout 500 × CAP-03 → 8991.00", "no exception swallowing added",
+  "hidden pricing tests pass (30)", "original tests kept", "agent's test fails on the buggy code", "manifest records the deployed image"];
+const STEPS = ["Detected", "Investigating", "Patch proposed", "Testing", "Applying", "Verifying", "Resolved"];
+document.getElementById("s6c").innerHTML = CHECKS.map((c, i) => `<div class="c" id="ck${i}"><span>✓</span><span>${c}</span></div>`).join("");
+document.getElementById("s6s").innerHTML = STEPS.map((s, i) => `<div class="step" id="st${i}">${s}</div>`).join("");
+
+// Scene windows (seconds).
+const S = { s1: [0, 3.4], s2: [3.4, 7.2], s3: [13.0, 17.6], s4: [17.6, 21.6], s6: [27.1, 31.9], s7: [36.9, 40.4], s8: [40.4, 45.0],
+            s5: [-9, -8], s6b: [-9, -8] };
+// Real-UI clips: [start, end, folder, frames, url, caption, zoom from, zoom to, origin]
+const CLIPS = [
+  [7.2, 13.0, "r1", 174, "127.0.0.1:8000/experiments  →  /runs/20261016-191342-7e275b", "Fault confirmed. <span>Hand it to the agent.</span>", 1.30, 1.0, "26% 22%"],
+  [21.6, 27.1, "r2", 166, "127.0.0.1:8000/runs/20261016-191342-7e275b", "Tests pass. Image built. <span>Deployed.</span>", 1.15, 1.55, "46% 80%"],
+  [31.9, 36.9, "r3", 150, "127.0.0.1:8000/runs/20261016-191342-7e275b", "Verified by hidden checks. <span>Resolved.</span>", 1.1, 1.45, "47% 64%"],
+];
+let shownFrame = "";
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+const easeInOut = (x) => (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const back = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const $ = (id) => document.getElementById(id);
+function set(el, o = 1, x = 0, y = 0, s = 1, blur = 0) {
+  el.style.opacity = o; el.style.transform = `translate(${x}px, ${y}px) scale(${s})`; el.style.filter = blur ? `blur(${blur}px)` : "none";
+}
+// A scene fades/slides in over 0.6 s and out over 0.45 s.
+function sceneAlpha(t, [a, b]) {
+  if (t < a - 0.01 || t > b + 0.01) return 0;
+  return Math.min(easeOut(prog(t, a, a + 0.6)), 1 - easeInOut(prog(t, b - 0.45, b)));
+}
+function enter(el, t, at, dy = 40, dur = 0.7) {
+  const p = easeOut(prog(t, at, at + dur));
+  set(el, p, 0, (1 - p) * dy, 0.98 + 0.02 * p, (1 - p) * 6);
+}
+
+async function render(t) {
+  // background drift
+  $("grid").style.transform = `translate(${-(t * 6) % 64}px, ${-(t * 4) % 64}px)`;
+  $("g1").style.transform = `translate(${Math.sin(t * .4) * 120}px, ${Math.cos(t * .3) * 80}px)`;
+  $("g2").style.transform = `translate(${Math.cos(t * .35) * 140}px, ${Math.sin(t * .25) * 90}px)`;
+  for (const id in S) { const a = sceneAlpha(t, S[id]); $(id).style.opacity = a; $(id).style.visibility = a > 0 ? "visible" : "hidden"; }
+
+  // S1
+  { const [a] = S.s1;
+    enter($("s1k"), t, a + 0.2, 20);
+    const p = back(prog(t, a + 0.45, a + 1.35));
+    set($("s1t"), clamp(p), 0, 0, 0.86 + 0.14 * p, (1 - clamp(p)) * 14);
+    enter($("s1s"), t, a + 1.3, 26); }
+
+  // S2
+  { const [a] = S.s2;
+    enter($("s2h"), t, a + 0.1);
+    enter($("s2a"), t, a + 0.5, 60);
+    const shake = t > a + 0.9 && t < a + 1.4 ? Math.sin(t * 90) * 6 * (1 - prog(t, a + 0.9, a + 1.4)) : 0;
+    $("s2n").style.transform = `translateX(${shake}px)`;
+    enter($("s2c"), t, a + 1.0, 50);
+    document.querySelectorAll(".pulse").forEach((d) => { const k = .5 + .5 * Math.sin(t * 9); d.style.boxShadow = `0 0 ${8 + 18 * k}px rgba(255,93,108,${.5 + .5 * k})`; }); }
+
+  // S3
+  { const [a] = S.s3;
+    const pm = back(prog(t, a + 0.3, a + 1.1));
+    set($("s3m"), clamp(pm), (1 - clamp(pm)) * 60, 0, 0.9 + 0.1 * pm);
+    $("orb").style.transform = `rotate(${t * 90}deg)`;
+    enter($("s3f"), t, a + 0.5, 40);
+    document.querySelectorAll("#s3f .ln").forEach((ln) => {
+      const i = Number(ln.dataset.t), start = a + 0.8 + i * 0.5;
+      const p = easeOut(prog(t, start, start + 0.35));
+      ln.style.opacity = p; ln.style.transform = `translateX(${(1 - p) * -18}px)`;
+      ln.style.maxWidth = `${p * 100}%`;
+    });
+    enter($("s3o"), t, a + 3.3, 50); }
+
+  // S4
+  { const [a] = S.s4;
+    enter($("s4e"), t, a + 0.3, 50);
+    const del = prog(t, a + 0.9, a + 1.3);
+    $("d1").style.opacity = 1 - 0.55 * del; $("d1").style.textDecoration = del > .5 ? "line-through" : "none";
+    ["a1", "a2", "a3"].forEach((id, i) => { const s = a + 1.35 + i * 0.45; const p = prog(t, s, s + 0.4);
+      const el = $(id); const full = el.dataset.full ?? (el.dataset.full = el.textContent);
+      el.textContent = full.slice(0, Math.round(full.length * p)) || " "; el.style.opacity = p > 0 ? 1 : 0; });
+    enter($("s4t"), t, a + 2.7, 50); }
+
+  // S5
+  { const [a] = S.s5;
+    ["p1", "p2", "p3", "p4"].forEach((id, i) => { const s = a + 0.3 + i * 0.95; enter($(id), t, s, 50, 0.55);
+      const fill = easeInOut(prog(t, s + 0.3, s + 1.0)); $(id).querySelector(".bar2 > div").style.width = `${fill * 100}%`;
+      const c = back(prog(t, s + 1.0, s + 1.35)); const ck = $(id).querySelector(".check"); ck.style.opacity = clamp(c); ck.style.transform = `scale(${clamp(c, 0, 1.2)})`; }); }
+
+  // S6
+  { const [a] = S.s6;
+    enter($("s6c"), t, a + 0.2, 40);
+    let n = 0;
+    CHECKS.forEach((_, i) => { const s = a + 0.6 + i * 0.17; const p = easeOut(prog(t, s, s + 0.2)); if (p > .5) n++;
+      const el = $(`ck${i}`); el.style.opacity = 0.18 + 0.82 * p; el.style.transform = `translateX(${(1 - p) * 14}px)`; });
+    $("cnt").textContent = n;
+    const r = back(prog(t, a + 3.4, a + 3.9)); set($("s6r"), clamp(r), 0, 0, 0.8 + 0.2 * r);
+    STEPS.forEach((_, i) => { const on = t > a + 0.4 + i * 0.45; $(`st${i}`).className = "step" + (on ? " on" : ""); }); }
+
+  // S6b real screenshot
+  { const [a] = S.s6b; const p = easeOut(prog(t, a, a + 1.0));
+    $("shot1").style.transform = `perspective(1800px) rotateX(${(1 - p) * 12}deg) translateY(${(1 - p) * 60 - prog(t, a, a + 3) * 40}px) scale(${0.94 + 0.04 * p})`; }
+
+  // S7 counters
+  { const [a] = S.s7; [["v1", 76, " s"], ["v2", 30, ""], ["v3", 15, "/15"]].forEach(([id, v, suf], i) => {
+      const p = easeOut(prog(t, a + 0.4 + i * 0.25, a + 1.6 + i * 0.25)); $(id).textContent = `${Math.round(v * p)}${suf}`; });
+    document.querySelectorAll("#s7 .stat").forEach((el, i) => enter(el, t, a + 0.2 + i * 0.18, 50, 0.6));
+    enter($("s7f"), t, a + 1.2, 10); }
+
+  // Real-UI footage
+  { const clip = CLIPS.find(([a, b]) => t >= a - 0.01 && t <= b + 0.01);
+    const real = $("real");
+    if (!clip) { real.style.opacity = 0; real.style.visibility = "hidden"; }
+    else {
+      const [a, b, dir, frames, url, cap, z0, z1, origin] = clip;
+      const alpha = Math.min(easeOut(prog(t, a, a + 0.5)), 1 - easeInOut(prog(t, b - 0.4, b)));
+      real.style.opacity = alpha; real.style.visibility = "visible";
+      const p = easeOut(prog(t, a, a + 0.7));
+      $("browser").style.transform = `perspective(2000px) rotateX(${(1 - p) * 10}deg) translateY(${(1 - p) * 50}px) scale(${0.96 + 0.04 * p})`;
+      const idx = Math.min(frames, Math.max(1, Math.floor((t - a) * 30) + 1));
+      const src = `assets/clips/${dir}/${String(idx).padStart(5, "0")}.jpg`;
+      const img = $("clipimg");
+      if (shownFrame !== src) { img.src = src; shownFrame = src; await img.decode().catch(() => {}); }
+      const z = z0 + (z1 - z0) * easeInOut(prog(t, a + 0.6, b - 0.3));
+      img.style.transformOrigin = origin; img.style.transform = `scale(${z})`;
+      $("url").textContent = url;
+      // Captions appear only once what they describe is on screen (the verification card lands ~1.8 s in).
+      $("clipcap").innerHTML = cap; enter($("clipcap"), t, a + (dir === "r3" ? 1.8 : 0.5), 20, 0.6);
+      $("recdot").style.opacity = 0.35 + 0.65 * (Math.sin(t * 6) > 0 ? 1 : 0.2);
+    } }
+
+  // S8 outro
+  { const [a] = S.s8; enter($("s8r"), t, a + 0.7, 30); enter($("s8p"), t, a + 1.4, 30);
+    const fadeAll = 1 - prog(t, 44.2, 45.0); $("stage").style.opacity = fadeAll; }
+}
+window.render = render;
+window.DURATION = 45.0;
+document.fonts.ready.then(() => { window.READY = true; render(0); });
+</script>
+</body>
+</html>

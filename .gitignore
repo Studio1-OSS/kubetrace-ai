@@ -13,3 +13,9 @@ apps/web/test-results/
 apps/web/playwright-report/
 apps/web/demo-output/
 demo/*.mp4
+launch-video/frames/
+launch-video/preview/
+launch-video/music.wav
+launch-video/assets/clips/
+apps/web/demo-output/
+.DS_Store
