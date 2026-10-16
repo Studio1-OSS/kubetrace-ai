@@ -136,3 +136,10 @@ def test_unexpected_tool_exceptions_become_tool_errors(monkeypatch):
     agent, events = make([fixture_call("list_files", {}), FINISH])
     assert agent.run().final_state == "resolved"
     assert "ConnectionError" in [p for t, p in events if t == "tool_result"][0]["output"]
+
+
+def test_repeating_an_identical_call_gets_a_notice():
+    agent, events = make([fixture_call("note", {"kind": "observation", "text": "same"})] * 3 + [FINISH])
+    agent.run()
+    outputs = [p["output"] for t, p in events if t == "tool_result"]
+    assert "repeat_notice" not in outputs[1] and "repeat_notice" in outputs[2]

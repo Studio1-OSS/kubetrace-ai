@@ -18,8 +18,11 @@ from .llm import ModelClient, ModelError
 from .redact import Redactor, truncate
 from .tools import TOOL_SCHEMA_VERSION, ToolContext, dispatch, tool_schemas
 
-PROMPT_VERSION = "2026-10-16.1"
-KEEP_FULL_TOOL_RESULTS = 8     # the most recent tool results the model sees in full
+# .2: keep 24 recent results whole (was 8, which made the model re-read files it had just read
+# because they came back shortened) and tell it when it repeats an identical call.
+PROMPT_VERSION = "2026-10-16.2"
+KEEP_FULL_TOOL_RESULTS = 24    # the most recent tool results the model sees in full
+REPEAT_NOTICE_AT = 3           # identical calls before the result carries a repeat notice
 ELIDED_CHARS = 400             # older results are cut to this much, with a note
 
 SYSTEM_PROMPT = """You are KubeTrace, an on-call engineer agent for one Kubernetes namespace.
@@ -115,6 +118,7 @@ class Agent:
         self.redactor, self.verify, self.cancel = redactor, verify, cancel
         self.emit, self.set_state = emit, set_state
         self.metrics = RunMetrics()
+        self.call_counts: dict[str, int] = {}
 
     def run(self) -> AgentResult:
         started = time.monotonic()
@@ -247,6 +251,11 @@ class Agent:
         if isinstance(result, dict) and result.get("status") in ("denied", "rejected", "stale"):
             self.metrics.rejected_actions += 1
         safe = self.redactor.value(result)
+        key = f"{call.name}:{call.arguments}"
+        self.call_counts[key] = self.call_counts.get(key, 0) + 1
+        if self.call_counts[key] >= REPEAT_NOTICE_AT and isinstance(safe, dict):
+            safe = {"repeat_notice": f"You have made this exact {call.name} call {self.call_counts[key]} times. "
+                                     "Use the result you already have and move on to the next step.", **safe}
         text = truncate(json.dumps(safe, default=str), self.limits.max_output_chars)
         self.emit("tool_result", {"id": call.id, "tool": call.name, "ok": ok, "duration_ms": round(duration * 1000),
                                   "output": text})
