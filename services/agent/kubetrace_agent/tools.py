@@ -593,8 +593,26 @@ def tool_schemas() -> list[dict]:
     return schemas
 
 
+SLOW_TOOLS = {"build_image": 1200, "run_tests": 300, "wait_for_rollout": 300}
+DEFAULT_TOOL_TIMEOUT_S = 90
+
+
 def dispatch(ctx: ToolContext, name: str, raw_arguments: str) -> tuple[bool, dict]:
-    """Run one tool call. Returns (ok, structured result). Never raises for tool-level problems."""
+    """Run one tool call with a time limit. Returns (ok, structured result); never raises."""
+    import concurrent.futures
+    limit = SLOW_TOOLS.get(name, DEFAULT_TOOL_TIMEOUT_S)
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"tool-{name}")
+    future = pool.submit(_dispatch, ctx, name, raw_arguments)
+    try:
+        return future.result(timeout=limit)
+    except concurrent.futures.TimeoutError:
+        return False, {"error": f"{name} did not finish within {limit} s and was abandoned; the cluster or a "
+                                "dependency may be slow. Check state before retrying."}
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+
+def _dispatch(ctx: ToolContext, name: str, raw_arguments: str) -> tuple[bool, dict]:
     tool = TOOLS_BY_NAME.get(name)
     if tool is None:
         return False, {"error": f"unknown tool {name!r}", "available": sorted(TOOLS_BY_NAME)}
@@ -608,6 +626,8 @@ def dispatch(ctx: ToolContext, name: str, raw_arguments: str) -> tuple[bool, dic
         return False, {"error": str(exc)}
     except ApiException as exc:
         return False, {"error": _api_message(exc), "status": exc.status}
+    except Exception as exc:  # noqa: BLE001 - network errors and the like are results the agent should see
+        return False, {"error": f"{type(exc).__name__}: {str(exc)[:500]}"}
 
 
 def _api_message(exc: ApiException) -> str:

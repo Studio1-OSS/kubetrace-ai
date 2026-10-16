@@ -123,11 +123,18 @@ class ImageBuilder:
             repo = f"{self.settings.registry.rstrip('/')}/{repo.split('/')[-1]}"
         full = f"{repo}:{tag}"
         platform = ["--platform", "linux/amd64"] if self.settings.cluster_kind == "civo" else []
-        output = self._docker("build", *platform, "--label", "kubetrace.ai/built=true", "-t", full, str(source))
+        build = ["build", *platform, "--label", "kubetrace.ai/built=true", "-t", full, str(source)]
+        try:
+            output = self._docker(*build)
+        except (BuildError, subprocess.TimeoutExpired):
+            output = self._docker(*build)  # base-image metadata lookups fail on network blips; one retry
         image_id = self._docker("image", "inspect", "--format", "{{.Id}}", full).strip()
         digest = None
         if self.settings.cluster_kind == "civo":
-            output += self._docker("push", full)
+            try:
+                output += self._docker("push", full, timeout=900)
+            except (BuildError, subprocess.TimeoutExpired):
+                output += self._docker("push", full, timeout=900)  # registries hiccup; one retry
             repo_digest = self._docker("image", "inspect", "--format", "{{index .RepoDigests 0}}", full).strip()
             digest = repo_digest.split("@", 1)[1]
             ref = f"{repo}@{digest}"

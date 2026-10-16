@@ -15,8 +15,19 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+import urllib3
 from kubernetes import client, config
 from kubernetes.client import ApiClient, Configuration
+
+# Every Kubernetes request gets a connect and read timeout unless a call sets its own, so a
+# network blip cannot hang a run (seen once: a list call waited 71 minutes with no timeout).
+DEFAULT_TIMEOUT = urllib3.Timeout(connect=10, read=60)
+
+
+def _api_client(cfg: Configuration) -> ApiClient:
+    api = ApiClient(cfg)
+    api.rest_client.pool_manager.connection_pool_kw["timeout"] = DEFAULT_TIMEOUT
+    return api
 
 AGENT_SERVICE_ACCOUNT = "kubetrace-agent"
 
@@ -53,7 +64,7 @@ def load_setup_client(kubeconfig: str = "", context: str = "", kubeconfig_text: 
         config.load_kube_config(config_file=kubeconfig or None, context=context or None, client_configuration=cfg)
         contexts, active = config.list_kube_config_contexts(config_file=kubeconfig or None)
     name = context or (active or {}).get("name", "")
-    return ClusterHandle(api=ApiClient(cfg), context=name, server=cfg.host, source=source)
+    return ClusterHandle(api=_api_client(cfg), context=name, server=cfg.host, source=source)
 
 
 def agent_client(setup: ClusterHandle, namespace: str, ttl_seconds: int = 3600) -> ApiClient:
@@ -69,7 +80,7 @@ def agent_client(setup: ClusterHandle, namespace: str, ttl_seconds: int = 3600) 
     cfg.verify_ssl = base.verify_ssl
     cfg.api_key = {"authorization": token}
     cfg.api_key_prefix = {"authorization": "Bearer"}
-    return ApiClient(cfg)
+    return _api_client(cfg)
 
 
 def list_endpoint_slices(api: ApiClient, namespace: str, label_selector: str = "") -> list[dict]:

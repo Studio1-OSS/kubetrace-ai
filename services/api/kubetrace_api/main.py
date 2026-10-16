@@ -226,8 +226,9 @@ def run_approve(run_id: str, mutation_id: str, req: ApprovalRequest):
 
 
 @app.get("/api/runs/{run_id}/events")
-async def run_events(run_id: str, request: Request, after: int = 0):
-    """Server-sent events. Resumes after Last-Event-ID (or ?after=), replaying everything missed."""
+async def run_events(run_id: str, request: Request, after: int = 0, follow: bool = True):
+    """Server-sent events. Resumes after Last-Event-ID (or ?after=), replaying everything missed.
+    follow=false returns once the backlog is sent (scripts and tests)."""
     if not db.get_run(run_id):
         raise HTTPException(404, "no such run")
     last = int(request.headers.get("last-event-id") or after or 0)
@@ -246,6 +247,8 @@ async def run_events(run_id: str, request: Request, after: int = 0):
             if batch:
                 idle = 0.0
                 continue
+            if not follow:
+                return
             idle += 0.4
             if idle >= 15:
                 idle = 0.0
