@@ -127,10 +127,22 @@ class RunManager:
             harness = Harness(self.settings, handle)
             self.db.create_run(id=run_id, scenario_id=scenario_id, provenance="pending", state="setting_up",
                                created_at=time.time(), repo_commit=repo_commit(), cluster=self._cluster_info(harness))
-            # Only the newest session per scenario is kept; older runs stay in the database.
+            # All scenarios share one demo namespace, and setup rebuilds it. Another scenario's baseline
+            # or injected fault is gone after this, so its card must not keep offering Inject or
+            # Investigate against a cluster that no longer has it. (_busy above refuses while any
+            # scenario has work running, so this only retires idle sessions.)
+            stale = {sid: st.get("run_id") for sid, st in self.db.experiments().items()
+                     if sid != scenario_id and st.get("state") not in TERMINAL | {"idle"}}
             for sid in list(self.sessions):
                 if sid != scenario_id:
-                    self.sessions.pop(sid)
+                    stale[sid] = self.sessions.pop(sid).run_id
+            for sid, old_run in stale.items():
+                prev = self.db.get_run(old_run) if old_run else None
+                if prev and prev["state"] not in TERMINAL:
+                    self.emit(old_run, "superseded", {"by_scenario": scenario_id, "by_run": run_id,
+                                                      "reason": "the shared demo namespace was rebuilt for another experiment"})
+                    self.set_state(old_run, "cancelled")
+                self.db.set_experiment(sid, "idle", None)
             session = Session(run_id, scenario, harness, run_dir)
             self.sessions[scenario_id] = session
             self.db.set_experiment(scenario_id, "setting_up", run_id)

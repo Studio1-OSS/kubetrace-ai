@@ -42,3 +42,15 @@ def test_diff_includes_new_files_and_export_restores_old_tree(ws, tmp_path):
     ws.commit("add")
     old = ws.export_commit(first, tmp_path / "old")
     assert not (old / "tests" / "test_added.py").exists()
+
+
+def test_a_deploy_records_image_and_app_version_in_the_manifest():
+    """deploy_image sets both live; the manifest must match, or the model 'fixes' the drift itself."""
+    from types import SimpleNamespace
+    from kubetrace_agent.tools import _set_manifest_image
+    files = {"k8s/deployment.yaml": "        - name: storefront\n          image: kubetrace/storefront:release-abc\n"
+                                    "          env:\n            - name: APP_VERSION\n              value: release-abc\n"}
+    ws = SimpleNamespace(read=lambda p: files[p], write=lambda p, t: files.__setitem__(p, t))
+    assert _set_manifest_image(SimpleNamespace(workspace=ws), "kubetrace/storefront:run-1-b1")
+    text = files["k8s/deployment.yaml"]
+    assert "image: kubetrace/storefront:run-1-b1" in text and "value: run-1-b1" in text and "release-abc" not in text

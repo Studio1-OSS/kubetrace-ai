@@ -228,9 +228,13 @@ class ApplicationBug(Scenario):
         return {"commit": commit, "buggy_image": image}
 
     def fault_present(self, h: Harness) -> list[Check]:
-        # The release rolls out Pod by Pod; wait until the buggy build is the one answering.
-        h.wait_for(lambda: h.http("storefront", "/api/checkout", "POST",
-                                  {"items": [{"sku": "MUG-01", "qty": 30}]}).get("status") == 500, 120, 3)
+        # The release rolls out Pod by Pod, and kube-proxy keeps sending some requests to the old Pods
+        # for a few seconds after they stop being endpoints. One 500 is not enough: wait until the
+        # buggy build answers several requests in a row.
+        def buggy_build_answering() -> bool:
+            return all(h.http("storefront", "/api/checkout", "POST",
+                              {"items": [{"sku": "MUG-01", "qty": 30}]}).get("status") == 500 for _ in range(5))
+        h.wait_for(buggy_build_answering, 120, 3)
         bad = h.http("storefront", "/api/checkout", "POST", {"items": [{"sku": "MUG-01", "qty": 30}]})
         good = h.http("storefront", "/api/checkout", "POST", {"items": [{"sku": "MUG-01", "qty": 2}]})
         return [Check("30-unit order returns 500", bad.get("status") == 500, f"HTTP {bad.get('status')}"),

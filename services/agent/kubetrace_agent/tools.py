@@ -484,8 +484,11 @@ def patch_resource(ctx: ToolContext, a: PatchResource) -> dict:
 
 
 def _set_manifest_image(ctx: ToolContext, image: str) -> bool:
+    """Record a deploy in the manifest: the image, and APP_VERSION, which deploy_image also sets live."""
     text = ctx.workspace.read("k8s/deployment.yaml")
     updated, count = re.subn(r"(?m)^(\s*image:\s*).+$", lambda m: m.group(1) + image, text, count=1)
+    updated = re.sub(r"(?m)^(\s*-\s*name:\s*APP_VERSION\s*\n\s*value:\s*).+$",
+                     lambda m: m.group(1) + image.split(":")[-1][:63], updated, count=1)
     if count:
         ctx.workspace.write("k8s/deployment.yaml", updated)
     return bool(count)
@@ -509,7 +512,7 @@ def deploy_image(ctx: ToolContext, a: DeployImage) -> dict:
     if m.status == "applied":
         # Say so explicitly: without this, models re-edit the manifest to "record" the image and fail.
         if _set_manifest_image(ctx, a.image):
-            out["manifest"] = f"k8s/deployment.yaml already updated to {a.image} and committed; do not edit it for the image"
+            out["manifest"] = f"k8s/deployment.yaml already updated (image and APP_VERSION) to {a.image} and committed; do not edit it for this deploy"
         else:
             out["manifest"] = "k8s/deployment.yaml has no image line to update; record the image there yourself"
         ctx.deployed_commit = ctx.workspace.commit(f"Deploy {a.image}")

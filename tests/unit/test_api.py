@@ -78,3 +78,43 @@ def test_catalog_hides_a_result_from_another_cluster(app):
     assert states["selector-mismatch"]["state"] == "idle"
     assert states["selector-mismatch"]["other_cluster"] == {"state": "unresolved", "run_id": "civo1", "context": "kubetrace-demo"}
     assert states["broken-readiness"]["state"] == "resolved" and "other_cluster" not in states["broken-readiness"]
+
+
+def test_setting_up_one_experiment_retires_another_ones_stale_fault(app, monkeypatch, tmp_path):
+    """The namespace is shared: after a new setup, an old 'Detected' card must not offer Investigate."""
+    from types import SimpleNamespace
+    from kubetrace_api import runs
+    from kubetrace_experiments.scenarios import SCENARIOS
+    m = app.manager
+    monkeypatch.setattr(m.clusters, "require", lambda: SimpleNamespace(server="https://kind:6443", context="kind"))
+    monkeypatch.setattr(runs, "Harness", lambda settings, handle: SimpleNamespace())
+    monkeypatch.setattr(m, "_cluster_info", lambda h: {})
+    monkeypatch.setattr(m, "_background", lambda *a, **k: None)
+    app.db.create_run(id="old", scenario_id="broken-readiness", provenance="pending", state="detected", created_at=time.time())
+    app.db.set_experiment("broken-readiness", "detected", "old")
+    m.sessions["broken-readiness"] = runs.Session("old", SCENARIOS["broken-readiness"], SimpleNamespace(), tmp_path)
+
+    new = m.setup("application-bug")
+
+    assert app.db.experiments()["broken-readiness"]["state"] == "idle"
+    assert app.db.get_run("old")["state"] == "cancelled"
+    assert any(e["type"] == "superseded" and e["payload"]["by_run"] == new for e in app.db.events("old", 0, 100))
+    assert app.db.experiments()["application-bug"]["state"] == "setting_up"
+
+
+def test_a_stale_fault_left_in_the_database_is_retired_too(app, monkeypatch):
+    """After an API restart there is no session, only the stored state; it must still be retired."""
+    from types import SimpleNamespace
+    from kubetrace_api import runs
+    m = app.manager
+    monkeypatch.setattr(m.clusters, "require", lambda: SimpleNamespace(server="https://kind:6443", context="kind"))
+    monkeypatch.setattr(runs, "Harness", lambda settings, handle: SimpleNamespace())
+    monkeypatch.setattr(m, "_cluster_info", lambda h: {})
+    monkeypatch.setattr(m, "_background", lambda *a, **k: None)
+    app.db.create_run(id="old", scenario_id="broken-readiness", provenance="pending", state="detected", created_at=time.time())
+    app.db.set_experiment("broken-readiness", "detected", "old")
+    app.db.create_run(id="done", scenario_id="invalid-config", provenance="local-live", state="resolved", created_at=time.time())
+    app.db.set_experiment("invalid-config", "resolved", "done")
+    m.setup("application-bug")
+    assert app.db.experiments()["broken-readiness"]["state"] == "idle" and app.db.get_run("old")["state"] == "cancelled"
+    assert app.db.experiments()["invalid-config"]["state"] == "resolved", "finished outcomes are history, not stale state"
