@@ -27,17 +27,40 @@ In `application-bug` Beam was refused twice when it tried to build an image befo
 
 **Beam returns no visible decision text.** Its prose arrives in the provider's `reasoning_content` field, which this project never stores or displays, so Beam timelines show tool calls, results and `note` entries but no per-step decision notes. Muse Spark Open populated those. This is a presentation difference, not a capability one.
 
+## Beam on Civo, 2026-10-17
+
+All six scenarios on the Civo cluster (`kubetrace-demo`, LON1, 2 × g4s.kube.medium), each on its first attempt. Five passed the hidden checks; one did not:
+
+| Scenario | Outcome | Tool calls | Policy rejections | Tokens |
+|---|---|---|---|---|
+| application-bug (flagship) | resolved: all 15 hidden checks | 41 | 0 | 474,256 |
+| selector-mismatch | resolved | 47 | 0 | 520,268 |
+| broken-readiness | resolved | 26 | 0 | 206,868 |
+| invalid-config | resolved | 53 | 0 | 555,847 |
+| memory-pressure | resolved | 43 | 0 | 434,381 |
+| partner-outage | **unresolved**: step limit of 20 reached | 40 | 0 | 339,608 |
+
+**The partner-outage failure.** Beam found the right evidence, and recorded a `note` naming the payment gateway, but never escalated. It kept re-reading files after the five-steps-left notice, and on its last step tried to edit `payment_gateway_url` in `k8s/configmap.yaml` from port 80 to 8080 "to test whether" the partner gateway would answer: a guessed repair to a dependency outside its scope. The edit did not match the file and changed nothing; had it matched, applying it would still have been denied, because the policy layer protects `payment_gateway_url` from being cleared or redirected. Beam escalated the same scenario correctly on kind, so this is run-to-run variance, recorded rather than retried. The run also contains one malformed tool name from the model (`grep?analysis?xml>?No,`), which the tool layer rejected as unknown.
+
+Muse Spark Open's earlier Civo runs, for comparison, resolved the application bug and broken readiness and failed selector mismatch, invalid config, memory pressure and partner outage.
+
 ## Tabulated runs
 ### Live on Civo
 
 | Scenario | Model | Runs | First-attempt success | Eventual success | Outcomes | Median agent time | Median tokens |
 |---|---|---|---|---|---|---|---|
 | application-bug | `meta-models/muse-spark-open` | 1 | 1/1 | 1/1 | resolved 1 | 122 s | 272,623 |
+| application-bug | `reflection/beam` | 1 | 1/1 | 1/1 | resolved 1 | 143 s | 474,256 |
 | broken-readiness | `meta-models/muse-spark-open` | 1 | 1/1 | 1/1 | resolved 1 | 103 s | 332,333 |
+| broken-readiness | `reflection/beam` | 1 | 1/1 | 1/1 | resolved 1 | 46 s | 206,868 |
 | invalid-config | `meta-models/muse-spark-open` | 1 | 0/1 | 0/1 | unresolved 1 | 221 s | 629,359 |
+| invalid-config | `reflection/beam` | 1 | 1/1 | 1/1 | resolved 1 | 113 s | 555,847 |
 | memory-pressure | `meta-models/muse-spark-open` | 1 | 0/1 | 0/1 | unresolved 1 | 142 s | 441,519 |
+| memory-pressure | `reflection/beam` | 1 | 1/1 | 1/1 | resolved 1 | 91 s | 434,381 |
 | partner-outage | `meta-models/muse-spark-open` | 1 | 0/1 | 0/1 | unresolved 1 | 83 s | 372,610 |
+| partner-outage | `reflection/beam` | 1 | 0/1 | 0/1 | unresolved 1 | 55 s | 339,608 |
 | selector-mismatch | `meta-models/muse-spark-open` | 2 | 0/2 | 0/2 | error 1, unresolved 1 | 141 s | 608,002 |
+| selector-mismatch | `reflection/beam` | 1 | 1/1 | 1/1 | resolved 1 | 104 s | 520,268 |
 
 
 ### Live on local kind
@@ -78,6 +101,12 @@ In `application-bug` Beam was refused twice when it tried to build an image befo
 
 | Report | Provenance | Outcome |
 |---|---|---|
+| [civo-live-beam-application-bug](../artifacts/examples/civo-live-beam-application-bug.md) | Live · Civo · Beam | resolved, first attempt, 15/15 hidden checks |
+| [civo-live-beam-selector-mismatch](../artifacts/examples/civo-live-beam-selector-mismatch.md) | Live · Civo · Beam | resolved, first attempt |
+| [civo-live-beam-broken-readiness](../artifacts/examples/civo-live-beam-broken-readiness.md) | Live · Civo · Beam | resolved, first attempt |
+| [civo-live-beam-invalid-config](../artifacts/examples/civo-live-beam-invalid-config.md) | Live · Civo · Beam | resolved, first attempt |
+| [civo-live-beam-memory-pressure](../artifacts/examples/civo-live-beam-memory-pressure.md) | Live · Civo · Beam | resolved, first attempt |
+| [civo-live-beam-partner-outage-UNRESOLVED](../artifacts/examples/civo-live-beam-partner-outage-UNRESOLVED.md) | Live · Civo · Beam | **unresolved**: never escalated; a guessed gateway edit failed and changed nothing |
 | [kind-live-beam-application-bug](../artifacts/examples/kind-live-beam-application-bug.md) | Live · kind · Beam | resolved, first attempt, 15/15 hidden checks |
 | [kind-live-beam-selector-mismatch](../artifacts/examples/kind-live-beam-selector-mismatch.md) | Live · kind · Beam | resolved, first attempt |
 | [kind-live-beam-broken-readiness](../artifacts/examples/kind-live-beam-broken-readiness.md) | Live · kind · Beam | resolved, first attempt |
@@ -95,4 +124,4 @@ Each `.md` has a matching `.json`.
 
 ## Not yet run live
 
-- Every scenario with Beam on Civo: blocked by a network that resets port 6443 to the Civo API server.
+Every scenario has now run live on both kind and Civo.

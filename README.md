@@ -52,6 +52,7 @@ The [recorded results](docs/RESULTS.md) include every investigated attempt, incl
 
 | Evidence | What was recorded | Where to inspect it |
 | --- | --- | --- |
+| Live on Civo · Reflection Beam | Five of six on their first attempts, including the application bug (code fix, 15/15 hidden checks). The partner outage ended unresolved: Beam never escalated, and its guessed edit to the payment gateway URL changed nothing. | [Beam on Civo](docs/RESULTS.md#beam-on-civo-2026-10-17) |
 | Live on local kind · Reflection Beam | All six on their first attempts: the application bug (code fix, 15/15 hidden checks), selector mismatch, broken readiness, invalid config and memory pressure resolved; the partner outage correctly escalated with no change applied. | [Beam on kind](docs/RESULTS.md#beam-on-local-kind-2026-10-17) |
 | Live on Civo · Muse Spark Open | Application bug and broken readiness resolved on their first attempts. Two selector-mismatch attempts ended in one infrastructure error and one unresolved run. | [Live Civo results](docs/RESULTS.md#live-on-civo) |
 | Live on local kind · Muse Spark Open | Application bug and selector mismatch each resolved on their first attempts. | [Live kind results](docs/RESULTS.md#live-on-local-kind) |
@@ -148,7 +149,7 @@ See [Civo setup](docs/CIVO.md) for registry configuration and cleanup.
 
 ## Limits
 
-- **Small demo workload.** Six scenarios, one to three live runs each. All six have now been investigated live, but a handful of runs is not a benchmark, and repeated runs of one scenario are not separate capabilities. Beam has not yet been run on Civo.
+- **Small demo workload.** Six scenarios, one to three live runs each. All six have now been investigated live, but a handful of runs is not a benchmark, and repeated runs of one scenario are not separate capabilities.
 - **Fixtures are scripted.** They exercise real pipeline steps and hidden checks without evaluating a model.
 - **Failures stay visible.** A model claiming success is not recovery. Hidden checks decide the outcome; unresolved runs and infrastructure errors remain in the results.
 - **Costs are estimates.** The results use provider-reported tokens and a pinned catalog rate. Some run metrics were reconstructed from recorded events and are labelled in their reports.
