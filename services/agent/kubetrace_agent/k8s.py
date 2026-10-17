@@ -19,14 +19,21 @@ import urllib3
 from kubernetes import client, config
 from kubernetes.client import ApiClient, Configuration
 
-# Every Kubernetes request gets a connect and read timeout unless a call sets its own, so a
-# network blip cannot hang a run (seen once: a list call waited 71 minutes with no timeout).
-DEFAULT_TIMEOUT = urllib3.Timeout(connect=10, read=60)
+# Every Kubernetes request gets a 10 s connect / 60 s read timeout unless a call sets its own, so
+# a network blip cannot hang a run (seen twice on Civo: 71 and 32 minutes with no timeout).
 
 
 def _api_client(cfg: Configuration) -> ApiClient:
     api = ApiClient(cfg)
-    api.rest_client.pool_manager.connection_pool_kw["timeout"] = DEFAULT_TIMEOUT
+    # The generated client passes timeout=None (meaning "wait forever") on every request that
+    # does not set _request_timeout, which overrides any pool default. Fill in a real default.
+    rest = api.rest_client
+    original = rest.request
+
+    def request(method, url, *args, _request_timeout=None, **kwargs):
+        return original(method, url, *args, _request_timeout=_request_timeout or (10, 60), **kwargs)
+
+    rest.request = request
     return api
 
 AGENT_SERVICE_ACCOUNT = "kubetrace-agent"
@@ -45,6 +52,11 @@ def _configuration() -> Configuration:
     # The generated client rejects valid API responses such as an EndpointSlice with no
     # endpoints ("endpoints must not be None"). The API server validates everything anyway.
     cfg.client_side_validation = False
+    # Managed control planes occasionally drop a connection ("Remote end closed connection").
+    # Retry with backoff; writes stay safe because creates that already happened return 409
+    # and updates carry a resourceVersion precondition.
+    cfg.retries = urllib3.Retry(total=4, connect=4, read=2, status=0, backoff_factor=0.6, allowed_methods=None,
+                                raise_on_status=False)
     return cfg
 
 

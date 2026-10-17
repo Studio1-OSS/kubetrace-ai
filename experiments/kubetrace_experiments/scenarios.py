@@ -228,6 +228,9 @@ class ApplicationBug(Scenario):
         return {"commit": commit, "buggy_image": image}
 
     def fault_present(self, h: Harness) -> list[Check]:
+        # The release rolls out Pod by Pod; wait until the buggy build is the one answering.
+        h.wait_for(lambda: h.http("storefront", "/api/checkout", "POST",
+                                  {"items": [{"sku": "MUG-01", "qty": 30}]}).get("status") == 500, 120, 3)
         bad = h.http("storefront", "/api/checkout", "POST", {"items": [{"sku": "MUG-01", "qty": 30}]})
         good = h.http("storefront", "/api/checkout", "POST", {"items": [{"sku": "MUG-01", "qty": 2}]})
         return [Check("30-unit order returns 500", bad.get("status") == 500, f"HTTP {bad.get('status')}"),

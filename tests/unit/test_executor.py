@@ -47,3 +47,16 @@ def test_named_lists_merge_by_name_so_a_partial_container_patch_keeps_the_image(
     assert out[1] == {"name": "sidecar", "image": "side:1"}
     removed = named_merge(live, {"spec": {"template": {"spec": {"containers": [{"name": "sidecar", "$patch": "delete"}]}}}})
     assert [c["name"] for c in removed["spec"]["template"]["spec"]["containers"]] == ["storefront"]
+
+
+def test_kubernetes_requests_get_a_default_timeout(monkeypatch):
+    """The generated client sends timeout=None (wait forever) unless told otherwise; ours never does."""
+    from kubernetes.client import Configuration, rest
+    from kubetrace_agent import k8s
+    seen = []
+    monkeypatch.setattr(rest.RESTClientObject, "request",
+                        lambda self, method, url, *a, _request_timeout=None, **k: seen.append(_request_timeout))
+    api = k8s._api_client(Configuration())
+    api.rest_client.request("GET", "https://example.invalid/api")
+    api.rest_client.request("GET", "https://example.invalid/api", _request_timeout=5)
+    assert seen == [(10, 60), 5]
