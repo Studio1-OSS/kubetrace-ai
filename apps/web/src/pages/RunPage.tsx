@@ -102,8 +102,8 @@ export function RunPage() {
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(280px,0.9fr)_minmax(380px,1.3fr)_minmax(340px,1.1fr)]">
         <section className="flex min-h-0 flex-col border-r border-line">
           <PaneTitle>Topology {live ? "(live)" : ""}</PaneTitle>
-          <div className="min-h-[280px] flex-1">
-            {live ? <TopologyGraph topology={topology} highlight={touched} /> :
+          <div className="min-h-[340px] flex-1">
+            {live ? <TopologyGraph compact topology={topology} highlight={touched} /> :
               <div className="grid h-full place-items-center px-6 text-center text-xs text-faint">Topology is shown live while a run is active.
                 For a finished run, see the evidence and verification tabs; the report has the full record.</div>}
           </div>

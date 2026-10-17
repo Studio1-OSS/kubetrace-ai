@@ -30,7 +30,8 @@ export interface Topology { namespace: string; nodes: TopoNode[]; edges: TopoEdg
 export interface Experiment {
   id: string; title: string; failure: string; symptom: string; repair: string; capabilities: string[];
   expected_outcome: string; budget: { max_seconds: number; max_steps: number };
-  status: { state: string; run_id?: string | null; busy?: boolean; pending_approvals?: string[] };
+  status: { state: string; run_id?: string | null; busy?: boolean; pending_approvals?: string[];
+    other_cluster?: { state: string; run_id: string; context?: string | null } };
 }
 
 export interface Run {

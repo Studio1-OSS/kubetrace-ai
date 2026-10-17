@@ -31,3 +31,19 @@ def test_presentation_mode_hides_addresses_and_contexts():
     r = reports.build(run(), [], PRICING, presentation=True)
     text = str(r)
     assert "74.220.23.17" not in text and "civo-ctx" not in text
+
+
+def test_tool_errors_are_listed_under_limitations():
+    events = [{"type": "tool_result", "payload": {"tool": "edit_file", "ok": False}},
+              {"type": "tool_result", "payload": {"tool": "edit_file", "ok": False}},
+              {"type": "tool_result", "payload": {"tool": "read_file", "ok": True}},
+              {"type": "tool_result", "payload": {"tool": "build_image", "ok": False}}]
+    r = reports.build(run(), events, PRICING)
+    line = next(x for x in r["limitations"] if "tool call(s) returned an error" in x)
+    assert line.startswith("3 tool call(s)") and "edit_file ×2" in line and "build_image ×1" in line
+    assert "None recorded" not in reports.markdown(r)
+
+
+def test_a_clean_run_still_says_none_recorded():
+    r = reports.build(run(), [{"type": "tool_result", "payload": {"tool": "read_file", "ok": True}}], PRICING)
+    assert r["limitations"] == [] and "None recorded" in reports.markdown(r)

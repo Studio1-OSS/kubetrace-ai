@@ -483,11 +483,12 @@ def patch_resource(ctx: ToolContext, a: PatchResource) -> dict:
     return out
 
 
-def _set_manifest_image(ctx: ToolContext, image: str) -> None:
+def _set_manifest_image(ctx: ToolContext, image: str) -> bool:
     text = ctx.workspace.read("k8s/deployment.yaml")
     updated, count = re.subn(r"(?m)^(\s*image:\s*).+$", lambda m: m.group(1) + image, text, count=1)
     if count:
         ctx.workspace.write("k8s/deployment.yaml", updated)
+    return bool(count)
 
 
 def deploy_image(ctx: ToolContext, a: DeployImage) -> dict:
@@ -504,10 +505,15 @@ def deploy_image(ctx: ToolContext, a: DeployImage) -> dict:
     except (ExecutionError, ApiException) as exc:
         raise ToolFailure(str(exc)) from exc
     m = _mutate(ctx, "Deployment", "storefront", live, proposed, "deploy_image", a.reason)
+    out = _mutation_result(m)
     if m.status == "applied":
-        _set_manifest_image(ctx, a.image)
+        # Say so explicitly: without this, models re-edit the manifest to "record" the image and fail.
+        if _set_manifest_image(ctx, a.image):
+            out["manifest"] = f"k8s/deployment.yaml already updated to {a.image} and committed; do not edit it for the image"
+        else:
+            out["manifest"] = "k8s/deployment.yaml has no image line to update; record the image there yourself"
         ctx.deployed_commit = ctx.workspace.commit(f"Deploy {a.image}")
-    return _mutation_result(m)
+    return out
 
 
 def restart_rollout(ctx: ToolContext, a: RestartRollout) -> dict:

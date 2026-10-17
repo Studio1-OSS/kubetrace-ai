@@ -88,12 +88,12 @@ def build(run: dict, events: list[dict], pricing: dict, presentation: bool = Fal
         "metrics": run.get("metrics"),
         "cost": cost_estimate(run, pricing),
         "errors": [e["payload"] for e in by_type.get("error", [])],
-        "limitations": _limitations(run, outcome),
+        "limitations": _limitations(run, outcome, events),
     }
     return mask(report) if presentation else report
 
 
-def _limitations(run: dict, outcome: dict) -> list[str]:
+def _limitations(run: dict, outcome: dict, events: list[dict] | None = None) -> list[str]:
     out = []
     if run["provenance"] == "fixture":
         out.append(f"{FIXTURE_LABEL}. It exercises the pipeline, not a model's ability.")
@@ -102,6 +102,17 @@ def _limitations(run: dict, outcome: dict) -> list[str]:
     failed = [m for m in outcome.get("mutations", []) if m.get("status") in ("denied", "rejected", "stale", "failed")]
     if failed:
         out.append(f"{len(failed)} proposed change(s) were denied, rejected, stale or failed; see attempted changes.")
+    failed_tools = [e["payload"].get("tool", "?") for e in events or []
+                    if e.get("type") == "tool_result" and not e["payload"].get("ok", True)]
+    if failed_tools:
+        counts: dict[str, int] = {}
+        for t in failed_tools:
+            counts[t] = counts.get(t, 0) + 1
+        out.append(f"{len(failed_tools)} tool call(s) returned an error: "
+                   + ", ".join(f"{t} ×{n}" for t, n in sorted(counts.items(), key=lambda kv: -kv[1]))
+                   + ". See the timeline for each result.")
+    elif (run.get("metrics") or {}).get("tool_errors"):
+        out.append(f"{run['metrics']['tool_errors']} tool call(s) returned an error; see the timeline.")
     for v in outcome.get("verifications", []):
         for c in v.get("checks", []):
             if not c.get("ok"):

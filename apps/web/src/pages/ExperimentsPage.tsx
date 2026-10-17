@@ -74,6 +74,12 @@ export function ExperimentsPage() {
               </div>
               <div className="mt-auto pt-4">
                 <div className="mb-3 text-[11px] text-faint">Budget: {x.budget.max_steps} steps · {Math.round(x.budget.max_seconds / 60)} min</div>
+                {x.status?.other_cluster && (
+                  <div className="mb-3 text-[11px] text-faint" data-testid={`other-cluster-${x.id}`}>
+                    Last run on another cluster{x.status.other_cluster.context ? ` (${x.status.other_cluster.context})` : ""}:{" "}
+                    <Link className="underline" to={`/runs/${x.status.other_cluster.run_id}`}>{x.status.other_cluster.state.replace(/_/g, " ")}</Link>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="secondary" disabled={busy} onClick={() => act(x.id, "setup")} data-testid={`setup-${x.id}`}><Play /> Setup</Button>
                   <Button size="sm" variant="secondary" disabled={busy || state !== "baseline_ready"} onClick={() => act(x.id, "inject")} data-testid={`inject-${x.id}`}><Syringe /> Inject</Button>

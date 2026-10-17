@@ -365,6 +365,16 @@ class RunManager:
 
     def experiment_states(self) -> dict:
         states = self.db.experiments()
+        # Experiment state is stored per scenario. A result from another cluster (Civo while kind is
+        # connected, or the reverse) says nothing about this one, so show the card as idle here.
+        handle = self.clusters.handle
+        if handle is not None:
+            for sid, st in list(states.items()):
+                run = self.db.get_run(st["run_id"]) if st.get("run_id") else None
+                ran_on = (run or {}).get("cluster") or {}
+                if ran_on.get("server") and ran_on["server"] != handle.server:
+                    states[sid] = {"state": "idle", "other_cluster": {"state": st["state"], "run_id": st["run_id"],
+                                                                     "context": ran_on.get("context")}}
         for sid, s in self.sessions.items():
             run = self.db.get_run(s.run_id)
             states[sid] = {"state": run["state"], "run_id": s.run_id, "busy": bool(s.thread and s.thread.is_alive()),

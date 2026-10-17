@@ -63,3 +63,18 @@ def test_results_keep_provenances_apart_and_skip_replays(app):
     client.post("/api/runs/import", json=exported)
     rows = client.get("/api/results").json()
     assert sorted(r["provenance"] for r in rows) == ["civo-live", "fixture"]
+
+
+def test_catalog_hides_a_result_from_another_cluster(app):
+    from types import SimpleNamespace
+    app.db.create_run(id="civo1", scenario_id="selector-mismatch", provenance="civo-live", state="unresolved",
+                      created_at=time.time(), model="m", cluster={"server": "https://civo:6443", "context": "kubetrace-demo"})
+    app.db.set_experiment("selector-mismatch", "unresolved", "civo1")
+    app.db.create_run(id="kind1", scenario_id="broken-readiness", provenance="local-live", state="resolved",
+                      created_at=time.time(), model="m", cluster={"server": "https://127.0.0.1:6443", "context": "kind-kubetrace"})
+    app.db.set_experiment("broken-readiness", "resolved", "kind1")
+    app.manager.clusters.handle = SimpleNamespace(server="https://127.0.0.1:6443", context="kind-kubetrace")
+    states = app.manager.experiment_states()
+    assert states["selector-mismatch"]["state"] == "idle"
+    assert states["selector-mismatch"]["other_cluster"] == {"state": "unresolved", "run_id": "civo1", "context": "kubetrace-demo"}
+    assert states["broken-readiness"]["state"] == "resolved" and "other_cluster" not in states["broken-readiness"]
