@@ -52,6 +52,7 @@ The [recorded results](docs/RESULTS.md) include every investigated attempt, incl
 
 | Evidence | What was recorded | Where to inspect it |
 | --- | --- | --- |
+| Live on local kind · Reflection Beam | Selector mismatch, broken readiness, invalid config and memory pressure each resolved on their first attempts; the partner outage correctly escalated with no change applied. | [Beam on kind](docs/RESULTS.md#beam-on-local-kind-2026-10-17) |
 | Live on Civo · Muse Spark Open | Application bug and broken readiness resolved on their first attempts. Two selector-mismatch attempts ended in one infrastructure error and one unresolved run. | [Live Civo results](docs/RESULTS.md#live-on-civo) |
 | Live on local kind · Muse Spark Open | Application bug and selector mismatch each resolved on their first attempts. | [Live kind results](docs/RESULTS.md#live-on-local-kind) |
 | Fixture runs · scripted, no model | All six scenarios exercised, including escalation for the partner outage. These validate the pipeline and hidden checks, not model capability. | [Fixture results](docs/RESULTS.md#fixture-runs-scripted-test-double-no-model) |
@@ -71,7 +72,7 @@ These are small demo scenarios, not SWE-bench or Terminal-Bench results. Repeate
 | Hidden verification | Independent checks decide whether the run resolved or correctly escalated. |
 | Web UI and reports | Live topology, tool timeline, diffs, test output, Markdown/JSON export and replay. |
 
-The timeline shows the model's short visible decision notes, tool calls and results, and `note` tool entries for observations and hypotheses. Provider reasoning fields are never stored. The model sees text only: redacted, size-limited tool results and repository text, treated as untrusted data. It never sees credentials, hidden checks or the expected patch.
+The timeline shows the model's short visible decision notes, tool calls and results, and `note` tool entries for observations and hypotheses. A provider reasoning field is never stored, logged or displayed; where a model requires its own reasoning back to continue a tool-calling conversation, as Beam does, it is replayed into that request and held nowhere else. Beam puts all of its prose there, so Beam timelines carry tool actions and `note` entries but no per-step decision text. The model sees text only: redacted, size-limited tool results and repository text, treated as untrusted data. It never sees credentials, hidden checks or the expected patch.
 
 ## Get started
 
@@ -147,7 +148,7 @@ See [Civo setup](docs/CIVO.md) for registry configuration and cleanup.
 
 ## Limits
 
-- **Small demo workload.** Six scenarios; the recorded live results cover only application bugs, readiness and selector mismatches. Invalid config, memory pressure and partner outage have passed only as fixtures in the recorded results.
+- **Small demo workload.** Six scenarios, one to three live runs each. All six have now been investigated live, but a handful of runs is not a benchmark, and repeated runs of one scenario are not separate capabilities. The flagship application bug has not yet been repeated with Beam, because it needs a fresh image build.
 - **Fixtures are scripted.** They exercise real pipeline steps and hidden checks without evaluating a model.
 - **Failures stay visible.** A model claiming success is not recovery. Hidden checks decide the outcome; unresolved runs and infrastructure errors remain in the results.
 - **Costs are estimates.** The results use provider-reported tokens and a pinned catalog rate. Some run metrics were reconstructed from recorded events and are labelled in their reports.

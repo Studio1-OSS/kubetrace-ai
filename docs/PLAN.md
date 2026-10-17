@@ -9,6 +9,11 @@ Written 2026-10-16, before implementation.
   - multi-turn tool calling works: tool call → tool result → answer;
   - it rejects `reasoning_effort: none` and `max` (it accepts low, medium, high and xhigh);
   - responses carry a `reasoning_content` field, which KubeTrace never stores or displays.
+- **Reflection Beam** (`reflection/beam`) appeared in the catalog on 2026-10-17 and is now the default in `.env.example`. Probed that day:
+  - multi-turn tool calling works, but only when each earlier assistant turn carries its `reasoning_content` back; without it the endpoint returns `400 ... is missing its reasoning`;
+  - `allow_missing_thinking=true`, which that error suggests, is **rejected** both as a top-level field and on the message, so the round trip is the only accepted form. The agent replays the field into the request and stores it nowhere;
+  - its visible `content` is empty: all prose goes to `reasoning_content`, so Beam timelines show tool actions and `note` entries but no per-step decision text;
+  - catalog rate $0.25 / $1.00 per M input/output tokens, against Muse Spark Open's $1.25 / $4.25.
 - **Civo**: the account had no clusters. The project owner approved creating one, `kubetrace-demo` (LON1, 2 × g4s.kube.medium). Cluster creation is never automatic in the app.
 - **Local**: kind 0.20, kubectl 1.35, Docker Desktop, Python 3.11/uv, Node 22.
 
