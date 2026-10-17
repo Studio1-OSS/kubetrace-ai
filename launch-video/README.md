@@ -10,8 +10,10 @@ A 45-second, 1080p30 launch video built from one real live run (Beam, `reflectio
 Encode:
 
 ```bash
-ffmpeg -framerate 30 -i frames/%05d.jpg -i music.wav -filter_complex "[1:a]loudnorm=I=-14:TP=-1.0:LRA=11[a]" \
+ffmpeg -framerate 30 -i frames/%05d.jpg -i music.wav -filter_complex "[1:a]loudnorm=I=-14:TP=-3:LRA=11,alimiter=limit=0.63:level=disabled:attack=0.5:release=40,aresample=48000[a]" \
   -map 0:v -map "[a]" -c:v libx264 -preset slow -crf 17 -pix_fmt yuv420p -c:a aac -b:a 256k -movflags +faststart -shortest kubetrace-ai-launch.mp4
 ```
 
 The Nebius Token Factory logo is the provider's mark, used to credit inference.
+
+The limiter is there because AAC encoding adds about 1.5 dB of overshoot on this soundtrack's sharp synthesized transients, so `loudnorm` alone (single pass, `TP=-1`) measured +0.2 dBTP after encoding. With it the master measures -14.6 LUFS integrated and -1.7 dBTP (`ffmpeg -i kubetrace-ai-launch.mp4 -af ebur128=peak=true -f null -`).

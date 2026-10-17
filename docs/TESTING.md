@@ -26,6 +26,13 @@ Needs kind, Docker and `KUBECONFIG` pointing at the kind cluster (see the README
 - The agent token is refused (403) for Secrets, other namespaces, the probe Deployment, deletes and RBAC.
 - A stale proposal is rejected.
 - Superficial or dangerous patches are denied against the real API.
+- Review mode holds a write at `pending_approval` until the operator answers: approved, it applies and the run resolves; rejected, the live Service is unchanged and the run is never reported as resolved.
+
+Stop any `kubetrace serve` on the same cluster first; the tests drive their own run manager on the demo namespace.
+
+## Docker Compose: `docker compose build && docker compose up -d`
+
+Checked on 2026-10-17: both images build, both ports bind to `127.0.0.1` only, the UI serves, `/api` proxies through nginx and SPA deep links resolve. The served bundle names `NEBIUS_API_KEY` and `CIVO_API_KEY` only in help text, never with a value. With kind on macOS the API container reports the cluster API server as unreachable, as the README says; use Compose with Civo, or run the API on the host for kind. `apps/web/package.json` pins `pnpm@10.23.0` and allows build scripts for `esbuild` only, because an unpinned `corepack enable` pulls a newer pnpm that fails `--frozen-lockfile` on ignored build scripts.
 
 ## UI: `cd apps/web && pnpm test:e2e`
 

@@ -73,3 +73,47 @@ def test_superficial_or_dangerous_patches_are_denied_on_the_real_api(baseline, p
     result = executor.execute("Deployment", "storefront", live, proposed, "patch_resource", "test")
     assert result.status == "denied", result.decision
     assert any(reason in r for r in result.decision["reasons"]), result.decision
+
+
+def _pending_mutations(db, run_id, seen):
+    for e in db.events(run_id, 0, 10_000):
+        p = e["payload"]
+        if p.get("status") == "pending_approval" and p.get("id") not in seen:
+            yield p["id"]
+
+
+def _review_run(stack, approve: bool):
+    """Investigate selector-mismatch in review mode, answering every approval request the same way."""
+    settings, db, clusters, manager = stack
+    wait_state(db, manager.setup("selector-mismatch"), {"baseline_ready"} | TERMINAL, timeout=600)
+    wait_state(db, manager.inject("selector-mismatch"), {"detected"} | TERMINAL, timeout=300)
+    core = client.CoreV1Api(clusters.require().api)
+    before = core.read_namespaced_service("storefront", settings.demo_namespace).spec.selector
+    run_id = manager.investigate("selector-mismatch", "review", "fixture")
+    seen: set[str] = set()
+    deadline = time.monotonic() + 600
+    while time.monotonic() < deadline:
+        for mid in list(_pending_mutations(db, run_id, seen)):
+            seen.add(mid)
+            manager.approve(run_id, mid, approve, "integration test")
+        if db.get_run(run_id)["state"] in TERMINAL:
+            break
+        time.sleep(1)
+    after = core.read_namespaced_service("storefront", settings.demo_namespace).spec.selector
+    statuses = [e["payload"].get("status") for e in db.events(run_id, 0, 10_000) if e["payload"].get("id") in seen]
+    return db.get_run(run_id), seen, before, after, statuses
+
+
+def test_review_mode_holds_a_write_until_approved(stack):
+    run, asked, before, after, statuses = _review_run(stack, approve=True)
+    assert asked, "review mode never asked for approval"
+    assert statuses.index("pending_approval") < statuses.index("applied")
+    assert after != before and run["state"] == "resolved"
+
+
+def test_review_mode_rejected_write_never_reaches_the_cluster(stack):
+    run, asked, before, after, statuses = _review_run(stack, approve=False)
+    assert asked, "review mode never asked for approval"
+    assert "applied" not in statuses and "rejected" in statuses
+    assert after == before, "a rejected change was written to the cluster"
+    assert run["state"] != "resolved"
