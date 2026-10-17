@@ -1,7 +1,10 @@
 """Model clients: an OpenAI-compatible client for Nebius Token Factory, and a labelled fixture double.
 
-The live client never stores or returns the model's private reasoning (`reasoning_content`).
-Only the visible message text and the tool calls reach the timeline.
+Some models (Reflection Beam among them) reject a multi-turn tool-calling request whose earlier
+assistant turns have no `reasoning_content`, and offer no flag to waive the check. The provider's
+reasoning field therefore has to survive the API round trip, and `ModelResponse.reasoning_content`
+carries it for exactly that purpose: the agent loop keeps it outside the stored transcript and
+replays it only into the outbound request. It never reaches the timeline, events, or reports.
 """
 from __future__ import annotations
 
@@ -34,6 +37,8 @@ class ModelResponse:
     usage: dict[str, int] | None  # from the provider; None when it reports none
     latency_s: float
     model: str
+    # Provider reasoning, replayed into later requests only. Never stored or displayed.
+    reasoning_content: str | None = None
 
 
 class ModelError(Exception):
@@ -101,8 +106,10 @@ class OpenAICompatibleModel:
                 usage = {"prompt_tokens": resp.usage.prompt_tokens or 0,
                          "completion_tokens": resp.usage.completion_tokens or 0,
                          "total_tokens": resp.usage.total_tokens or 0}
+            reasoning = getattr(msg, "reasoning_content", None)
             return ModelResponse(content=msg.content or "", tool_calls=calls, finish_reason=choice.finish_reason,
-                                 usage=usage, latency_s=time.monotonic() - started, model=resp.model or self.model)
+                                 usage=usage, latency_s=time.monotonic() - started, model=resp.model or self.model,
+                                 reasoning_content=reasoning if isinstance(reasoning, str) and reasoning else None)
         raise ModelError(f"model request failed after {self.settings.max_model_retries + 1} attempts: {last_error}")
 
 

@@ -21,9 +21,10 @@ from .tools import TOOL_SCHEMA_VERSION, ToolContext, dispatch, tool_schemas
 # .2: keep 24 recent results whole (was 8, which made the model re-read files it had just read
 # because they came back shortened) and tell it when it repeats an identical call.
 # .3: patch_resource merges named lists (containers, env, ports) by name, like kubectl's strategic merge.
-PROMPT_VERSION = "2026-10-16.3"
+PROMPT_VERSION = "2026-10-17.2"
 KEEP_FULL_TOOL_RESULTS = 24    # the most recent tool results the model sees in full
 REPEAT_NOTICE_AT = 3           # identical calls before the result carries a repeat notice
+BUDGET_NOTICE_AT = 5        # steps left when the model is reminded to call finish
 ELIDED_CHARS = 400             # older results are cut to this much, with a note
 
 SYSTEM_PROMPT = """You are KubeTrace, an on-call engineer agent for one Kubernetes namespace.
@@ -120,6 +121,10 @@ class Agent:
         self.emit, self.set_state = emit, set_state
         self.metrics = RunMetrics()
         self.call_counts: dict[str, int] = {}
+        # Provider reasoning for assistant turns, by their index in `messages`. Held here rather than
+        # on the message so the stored transcript, events and reports never carry it; `_context`
+        # replays it into the outbound request, which some models require (see llm.py).
+        self.reasoning: dict[int, str] = {}
 
     def run(self) -> AgentResult:
         started = time.monotonic()
@@ -144,6 +149,7 @@ class Agent:
             return AgentResult(state, reason, self.ctx.finished, verifications, first_attempt, eventual,
                                self.metrics.as_dict(), round(time.monotonic() - started, 2), messages)
 
+        budget_notified = False
         for step in range(1, self.limits.max_steps + 1):
             if self.cancel.is_set():
                 return finish("cancelled", "cancelled by the operator")
@@ -161,7 +167,7 @@ class Agent:
             if response.content.strip():
                 self.emit("decision", {"text": self.redactor.text(truncate(response.content.strip(), 1200))})
             if not response.tool_calls:
-                messages.append(assistant)
+                self._append_assistant(messages, assistant, response)
                 self.metrics.nudges += 1
                 if self.metrics.nudges > 3:
                     return finish("unresolved", "the model stopped calling tools without finishing")
@@ -169,7 +175,7 @@ class Agent:
                 continue
             assistant["tool_calls"] = [{"id": c.id, "type": "function",
                                         "function": {"name": c.name, "arguments": c.arguments}} for c in response.tool_calls]
-            messages.append(assistant)
+            self._append_assistant(messages, assistant, response)
             for call in response.tool_calls:
                 if self.cancel.is_set():
                     break
@@ -208,18 +214,39 @@ class Agent:
                 self.ctx.finished = None
                 messages.append({"role": "user", "content": "Independent verification did not confirm recovery: "
                                  f"{verdict.public_summary} Investigate further and fix it, then finish again."})
+                continue
+
+            # A thorough model can spend its whole budget investigating and never call finish, which
+            # throws away a repair it already made. Say how much budget is left; the content of the
+            # decision stays the model's, and nothing here hints at what the repair should be.
+            left = self.limits.max_steps - step
+            if 0 < left <= BUDGET_NOTICE_AT and not budget_notified:
+                budget_notified = True
+                self.emit("budget_notice", {"steps_left": left})
+                messages.append({"role": "user", "content":
+                                 f"{left} of your {self.limits.max_steps} steps remain. Call finish as soon as you "
+                                 "can state a root cause, whether you repaired the incident or are escalating it. "
+                                 "A run that never calls finish is recorded as unresolved."})
         return finish("unresolved", f"step limit of {self.limits.max_steps} reached")
 
-    @staticmethod
-    def _context(messages: list[dict]) -> list[dict]:
-        """What the model is sent: older tool results shortened, so a long run stays within budget.
-        The stored transcript keeps every result in full."""
+    def _append_assistant(self, messages: list[dict], assistant: dict, response) -> None:
+        """Store the assistant turn, and keep its provider reasoning out of the transcript."""
+        messages.append(assistant)
+        if response.reasoning_content:
+            self.reasoning[len(messages) - 1] = response.reasoning_content
+
+    def _context(self, messages: list[dict]) -> list[dict]:
+        """What the model is sent: older tool results shortened, so a long run stays within budget,
+        and each assistant turn's provider reasoning replayed. The stored transcript keeps every
+        result in full and carries no reasoning."""
         tool_idx = [i for i, m in enumerate(messages) if m.get("role") == "tool"]
         old = set(tool_idx[:-KEEP_FULL_TOOL_RESULTS])
         out = []
         for i, m in enumerate(messages):
             if i in old and len(m.get("content", "")) > ELIDED_CHARS:
                 m = {**m, "content": m["content"][:ELIDED_CHARS] + " … [older result shortened; call the tool again for the full output]"}
+            if i in self.reasoning:
+                m = {**m, "reasoning_content": self.reasoning[i]}
             out.append(m)
         return out
 

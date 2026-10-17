@@ -123,6 +123,15 @@ class ImageBuilder:
             repo = f"{self.settings.registry.rstrip('/')}/{repo.split('/')[-1]}"
         full = f"{repo}:{tag}"
         platform = ["--platform", "linux/amd64"] if self.settings.cluster_kind == "civo" else []
+        # Tags are content-addressed (source hash or commit), so an existing local image with this
+        # tag is this exact build. Reuse it for kind; it also keeps setup working offline.
+        if self.settings.cluster_kind != "civo":
+            have = subprocess.run([self.settings.docker_bin, "image", "inspect", "--format", "{{.Id}}", full],
+                                  capture_output=True, text=True)
+            if have.returncode == 0:
+                output = f"reused existing image {full} (content-addressed tag)\n" + self._kind_load(full)
+                return BuiltImage(ref=full, tag=full, image_id=have.stdout.strip(), digest=None,
+                                  build_output=output[-4000:], duration_s=time.monotonic() - started)
         build = ["build", *platform, "--label", "kubetrace.ai/built=true", "-t", full, str(source)]
         try:
             output = self._docker(*build)

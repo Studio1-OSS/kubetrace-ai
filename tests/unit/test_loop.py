@@ -143,3 +143,42 @@ def test_repeating_an_identical_call_gets_a_notice():
     agent.run()
     outputs = [p["output"] for t, p in events if t == "tool_result"]
     assert "repeat_notice" not in outputs[1] and "repeat_notice" in outputs[2]
+
+
+def test_provider_reasoning_is_replayed_to_the_model_but_never_stored():
+    """Beam rejects later turns whose earlier assistant turns dropped `reasoning_content`, so it has
+    to go back out on the wire; it must not reach the transcript, events or reports."""
+    sent: list[list[dict]] = []
+
+    class Recording:
+        provider, model = "test", "test-model"
+
+        def __init__(self) -> None:
+            self.script = [
+                ModelResponse("looking", [ToolCall("c1", "note", json.dumps({"kind": "guess", "text": "x"}))],
+                              "tool_calls", None, 0.0, "test-model", reasoning_content="PRIVATE THOUGHTS"),
+                ModelResponse("done", [ToolCall("c2", "finish", json.dumps(
+                    {"outcome": "resolved", "root_cause": "x", "summary": "y"}))],
+                    "tool_calls", None, 0.0, "test-model", reasoning_content="MORE THOUGHTS"),
+            ]
+
+        def generation_settings(self):
+            return {}
+
+        def chat(self, messages, tools):
+            sent.append([dict(m) for m in messages])
+            return self.script.pop(0)
+
+    agent, events = make(Recording())
+    result = agent.run()
+    assert result.final_state == "resolved"
+
+    # The second request carries the first turn's reasoning back.
+    replayed = [m for m in sent[1] if m.get("reasoning_content")]
+    assert [m["reasoning_content"] for m in replayed] == ["PRIVATE THOUGHTS"]
+    assert all(m["role"] == "assistant" for m in replayed)
+
+    # Nothing durable holds it.
+    assert not any("reasoning" in m for m in result.transcript)
+    blob = json.dumps(result.transcript) + json.dumps(events, default=str)
+    assert "PRIVATE THOUGHTS" not in blob and "MORE THOUGHTS" not in blob
