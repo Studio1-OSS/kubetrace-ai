@@ -16,6 +16,12 @@ dependencies = [
   "certifi==2025.8.3",
 ]
 
+[project.optional-dependencies]
+# Only for experiments/aura_swap: run an experiment with Aura (github.com/mezmo/aura) as the agent loop.
+aura = [
+  "mcp>=1.12,<2",
+]
+
 [dependency-groups]
 dev = [
   "pytest==8.4.2",
@@ -32,10 +38,12 @@ packages = [
   "services/api/kubetrace_api",
   "services/agent/kubetrace_agent",
   "experiments/kubetrace_experiments",
+  "experiments/aura_swap",
 ]
 
 [project.scripts]
 kubetrace = "kubetrace_api.cli:main"
+aura-swap = "aura_swap.runner:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit", "tests/integration"]
