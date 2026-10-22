@@ -39,6 +39,8 @@ export function ProvenanceBadge({ provenance, replayOf }: { provenance: string; 
     fixture: ["FIXTURE · scripted, no model", "warn"],
     "local-live": ["Live · kind", "accent"],
     "civo-live": ["Live · Civo", "ok"],
+    "aura-kubetrace-tools": ["Live · Aura runtime, KubeTrace tools", "accent"],
+    "aura-k8s-mcp": ["Live · Aura + Kubernetes MCP", "accent"],
     replay: [`Replay${replayOf ? ` of ${replayOf}` : ""}`, "info"],
     pending: ["Not investigated yet", "neutral"],
   };

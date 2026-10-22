@@ -13,6 +13,8 @@ PROVENANCE_LABEL = {
     "fixture": "FIXTURE run: scripted test double, no model was called",
     "local-live": "Live run on a local kind cluster",
     "civo-live": "Live run on a Civo cluster",
+    "aura-kubetrace-tools": "Live run with Aura (github.com/mezmo/aura) as the agent loop, on KubeTrace's tools",
+    "aura-k8s-mcp": "Live run with Aura (github.com/mezmo/aura) and kubernetes-mcp-server",
     "replay": "Replay of an exported run",
     "pending": "Not yet investigated",
 }

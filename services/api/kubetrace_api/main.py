@@ -26,7 +26,12 @@ from .runs import TERMINAL, RunError, RunManager
 settings = get_settings()
 db = Database(settings.database_path)
 clusters = ClusterManager(settings)
-manager = RunManager(settings, db, clusters)
+if os.environ.get("AGENT_RUNTIME") == "aura":
+    # Swap the agent loop for Aura (experiments/aura_swap). Everything else stays KubeTrace's own.
+    from aura_swap.runner import AuraRunManager
+    manager: RunManager = AuraRunManager(settings, db, clusters)
+else:
+    manager = RunManager(settings, db, clusters)
 app = FastAPI(title="KubeTrace AI", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
                    allow_methods=["*"], allow_headers=["*"])
