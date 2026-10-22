@@ -491,9 +491,13 @@ class MemoryPressure(Scenario):
         return {"commit": commit, "changed": "cache_warm_mb 160"}
 
     def fault_present(self, h: Harness) -> list[Check]:
-        ok = h.wait_for(lambda: any(cs.last_state and cs.last_state.terminated and cs.last_state.terminated.reason == "OOMKilled"
+        # Some kubelets (kind on cgroup v2, seen on Ubuntu 24.04) report a memory-cgroup OOM kill as
+        # reason "Error" with exit code 137 instead of "OOMKilled". Accept either; the kernel log confirms the kill.
+        def oom(t) -> bool:
+            return bool(t) and (t.reason == "OOMKilled" or t.exit_code == 137)
+        ok = h.wait_for(lambda: any(cs.last_state and oom(cs.last_state.terminated)
                                     for p in h.pods() for cs in p.status.container_statuses or []), 150)
-        return [Check("a Pod was OOMKilled", ok, "last termination reason OOMKilled")]
+        return [Check("a Pod was OOMKilled", ok, "last termination reason OOMKilled, or SIGKILL (exit 137) from the memory limit")]
 
     def verify(self, h: Harness, view: RunView) -> Verification:
         cfg = json.loads(h.core.read_namespaced_config_map("storefront-config", h.ns).data["config.json"])

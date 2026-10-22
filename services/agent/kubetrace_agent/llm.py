@@ -239,9 +239,11 @@ def preflight(settings: Settings) -> dict[str, Any]:
     if not check("tool calling", valid, f"Returned {call.name}({call.arguments}) in {first.latency_s:.1f} s"
                  if valid else f"Malformed tool call: {call.name}({call.arguments})"):
         return result
-    messages += [{"role": "assistant", "content": first.content, "tool_calls": [
-        {"id": call.id, "type": "function", "function": {"name": call.name, "arguments": call.arguments}}]},
-                 {"role": "tool", "tool_call_id": call.id, "content": json.dumps({"recorded": True})}]
+    assistant = {"role": "assistant", "content": first.content, "tool_calls": [
+        {"id": call.id, "type": "function", "function": {"name": call.name, "arguments": call.arguments}}]}
+    if first.reasoning_content:  # replayed as the agent loop does; Beam rejects the follow-up without it
+        assistant["reasoning_content"] = first.reasoning_content
+    messages += [assistant, {"role": "tool", "tool_call_id": call.id, "content": json.dumps({"recorded": True})}]
     try:
         second = model.chat(messages, [PREFLIGHT_TOOL])
     except ModelError as exc:
